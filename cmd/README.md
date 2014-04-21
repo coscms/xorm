@@ -5,11 +5,11 @@ xorm tools is a set of  tools for database operation.
 
 ## Install
 
-`go get github.com/go-xorm/cmd/xorm`
+`go get github.com/coscms/xorm/cmd/xorm`
 
 and you should install the depends below:
 
-* github.com/go-xorm/xorm
+* github.com/coscms/xorm
 
 * Mysql: [github.com/go-sql-driver/mysql](https://github.com/go-sql-driver/mysql)
 

@@ -1,8 +1,8 @@
-[中文](https://github.com/go-xorm/xorm/blob/master/README_CN.md)
+[中文](https://github.com/coscms/xorm/blob/master/README_CN.md)
 
 Xorm is a simple and powerful ORM for Go.
 
-[![Build Status](https://drone.io/github.com/go-xorm/xorm/status.png)](https://drone.io/github.com/go-xorm/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/go-xorm/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+[![Build Status](https://drone.io/github.com/coscms/xorm/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
 # Features
 
@@ -18,7 +18,7 @@ Xorm is a simple and powerful ORM for Go.
 
 * Query Cache speed up
 
-* Database Reverse support, See [Xorm Tool README](https://github.com/go-xorm/xorm/blob/master/xorm/README.md)
+* Database Reverse support, See [Xorm Tool README](https://github.com/coscms/xorm/blob/master/xorm/README.md)
 
 * Simple cascade loading support
 
@@ -37,15 +37,15 @@ Drivers for Go's sql package which currently support database/sql includes:
 
 * Postgres: [github.com/lib/pq](https://github.com/lib/pq)
 
-* MsSql: [github.com/lunny/godbc](https://github.com/lunny/godbc)
+* MsSql: [github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc)
 
 # Changelog
 
 * **v0.4.0 RC1** 
 	Changes:
-	* moved xorm cmd to [github.com/go-xorm/cmd](github.com/go-xorm/cmd)
-	* refactored general DB operation a core lib at [github.com/go-xorm/core](https://github.com/go-xorm/core)
-	* moved tests to github.com/go-xorm/tests [github.com/go-xorm/tests](github.com/go-xorm/tests)
+	* moved xorm cmd to [github.com/coscms/xorm/cmd](github.com/coscms/xorm/cmd)
+	* refactored general DB operation a core lib at [github.com/coscms/xorm/core](https://github.com/coscms/xorm/core)
+	* moved tests to github.com/coscms/xorm/tests [github.com/coscms/xorm/tests](github.com/coscms/xorm/tests)
 
 	Improvements:
 	* Prepared statement cache
@@ -68,7 +68,7 @@ Drivers for Go's sql package which currently support database/sql includes:
 * **v0.3.1** 
 
 	Features:
-	* Support MSSQL DB via ODBC driver ([github.com/lunny/godbc](https://github.com/lunny/godbc));
+	* Support MSSQL DB via ODBC driver ([github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc));
 	* Composite Key, using multiple pk xorm tag 
 	* Added Row() API as alternative to Iterate() API for traversing result set, provide similar usages to sql.Rows type
 	* ORM struct allowed declaration of pointer builtin type as members to allow null DB fields 
@@ -78,25 +78,25 @@ Drivers for Go's sql package which currently support database/sql includes:
 	* Allowed int/int32/int64/uint/uint32/uint64/string as Primary Key type
 	* Performance improvement for Get()/Find()/Iterate()
 
-[More changelogs ...](https://github.com/go-xorm/xorm/blob/master/docs/Changelog.md)
+[More changelogs ...](https://github.com/coscms/xorm/blob/master/docs/Changelog.md)
 
 # Installation
 
 If you have [gopm](https://github.com/gpmgo/gopm) installed, 
 
-	gopm get github.com/go-xorm/xorm
+	gopm get github.com/coscms/xorm
 	
 Or
 
-	go get github.com/go-xorm/xorm
+	go get github.com/coscms/xorm
 
 # Documents
 
-* [GoDoc](http://godoc.org/github.com/go-xorm/xorm)
+* [GoDoc](http://godoc.org/github.com/coscms/xorm)
 
-* [GoWalker](http://gowalker.org/github.com/go-xorm/xorm)
+* [GoWalker](http://gowalker.org/github.com/coscms/xorm)
 
-* [Quick Start](https://github.com/go-xorm/xorm/blob/master/docs/QuickStartEn.md)
+* [Quick Start](https://github.com/coscms/xorm/blob/master/docs/QuickStartEn.md)
 
 # Cases
 
@@ -125,7 +125,7 @@ Please visit [Xorm on Google Groups](https://groups.google.com/forum/#!forum/xor
 
 # Contributors
 
-If you want to pull request, please see [CONTRIBUTING](https://github.com/go-xorm/xorm/blob/master/CONTRIBUTING.md)
+If you want to pull request, please see [CONTRIBUTING](https://github.com/coscms/xorm/blob/master/CONTRIBUTING.md)
 
 * [Lunny](https://github.com/lunny)
 * [Nashtsai](https://github.com/nashtsai)

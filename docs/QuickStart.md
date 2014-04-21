@@ -41,7 +41,7 @@ When using xorm, you can create multiple orm engines, an engine means a databse.
 ```Go
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/go-xorm/xorm"
+	"github.com/coscms/xorm"
 )
 engine, err := xorm.NewEngine("mysql", "root:123@/test?charset=utf8")
 defer engine.Close()
@@ -52,7 +52,7 @@ or
 ```Go
 import (
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/go-xorm/xorm"
+	"github.com/coscms/xorm"
 	)
 engine, err = xorm.NewEngine("sqlite3", "./test.db")
 defer engine.Close()
@@ -70,7 +70,7 @@ xorm supports four drivers now:
 
 * Postgres: [github.com/lib/pq](https://github.com/lib/pq)
 
-* MsSql: [github.com/lunny/godbc](https://githubcom/lunny/godbc)
+* MsSql: [github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc)
 
 NewEngine's parameters are the same as `sql.Open`. So you should read the drivers' document for parameters' usage.
 
@@ -153,7 +153,7 @@ type User struct {
 }
 ```
 
-For different DBMS, data types对于不同的数据库系统，数据类型其实是有些差异的。因此xorm中对数据类型有自己的定义，基本的原则是尽量兼容各种数据库的字段类型，具体的字段对应关系可以查看[字段类型对应表](https://github.com/go-xorm/xorm/blob/master/docs/COLUMNTYPE.md)。
+For different DBMS, data types对于不同的数据库系统，数据类型其实是有些差异的。因此xorm中对数据类型有自己的定义，基本的原则是尽量兼容各种数据库的字段类型，具体的字段对应关系可以查看[字段类型对应表](https://github.com/coscms/xorm/blob/master/docs/COLUMNTYPE.md)。
 
 具体的映射规则如下，另Tag中的关键字均不区分大小写，字段名区分大小写：
 
@@ -165,7 +165,7 @@ For different DBMS, data types对于不同的数据库系统，数据类型其�
         <td>pk</td><td>If column is Primary Key</td>
     </tr>
     <tr>
-        <td>当前支持30多种字段类型，详情参见 [字段类型](https://github.com/go-xorm/xorm/blob/master/docs/COLUMNTYPE.md)</td><td>字段类型</td>
+        <td>当前支持30多种字段类型，详情参见 [字段类型](https://github.com/coscms/xorm/blob/master/docs/COLUMNTYPE.md)</td><td>字段类型</td>
     </tr>
     <tr>
         <td>autoincr</td><td>If autoincrement column</td>
@@ -657,19 +657,19 @@ engine.ClearCache(new(User))
 
 Cache implement theory below:
 
-![cache design](https://raw.github.com/go-xorm/xorm/master/docs/cache_design.png)
+![cache design](https://raw.github.com/coscms/xorm/master/docs/cache_design.png)
 
 <a name="130" id="130"></a>
 ## 12.xorm tool
 xorm工具提供了xorm命令，能够帮助做很多事情。
 
 ### 12.1.Reverse command
-Please visit [xorm tool](https://github.com/go-xorm/xorm/tree/master/xorm)
+Please visit [xorm tool](https://github.com/coscms/xorm/tree/master/xorm)
 
 <a name="140" id="140"></a>
 ## 13.Examples
 
-请访问[https://github.com/go-xorm/xorm/tree/master/examples](https://github.com/go-xorm/xorm/tree/master/examples)
+请访问[https://github.com/coscms/xorm/tree/master/examples](https://github.com/coscms/xorm/tree/master/examples)
 
 <a name="150" id="150"></a>
 ## 14.Cases
