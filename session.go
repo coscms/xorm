@@ -976,6 +976,7 @@ func (session *Session) Get(bean interface{}) (bool, error) {
 
 	if rawRows.Next() {
 		if fields, err := rawRows.Columns(); err == nil {
+			fmt.Println(fields)
 			err = session.row2Bean(rawRows, fields, len(fields), bean)
 		}
 		return true, err
@@ -2479,15 +2480,15 @@ func (session *Session) value2Interface(col *core.Column, fieldValue reflect.Val
 		return fieldValue.String(), nil
 	case reflect.Struct:
 		if fieldType == core.TimeType {
-			t := fieldValue.Interface().(time.Time)
-			if session.Engine.dialect.DBType() == core.MSSQL {
-				if t.IsZero() {
-					return nil, nil
-				}
-			}
 			switch fieldValue.Interface().(type) {
 			case time.Time:
-				tf := session.Engine.FormatTime(col.SQLType.Name, fieldValue.Interface().(time.Time))
+				t := fieldValue.Interface().(time.Time)
+				if session.Engine.dialect.DBType() == core.MSSQL {
+					if t.IsZero() {
+						return nil, nil
+					}
+				}
+				tf := session.Engine.FormatTime(col.SQLType.Name, t)
 				return tf, nil
 			default:
 				return fieldValue.Interface(), nil
@@ -3314,7 +3315,7 @@ func genCols(table *core.Table, session *Session, bean interface{}, useCol bool,
 		}
 
 		if (col.IsCreated || col.IsUpdated) && session.Statement.UseAutoTime {
-			args = append(args, time.Now())
+			args = append(args, session.Engine.NowTime(col.SQLType.Name))
 		} else if col.IsVersion && session.Statement.checkVersion {
 			args = append(args, 1)
 		} else {
