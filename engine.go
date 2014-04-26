@@ -511,7 +511,6 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 	for i := 0; i < t.NumField(); i++ {
 		tag := t.Field(i).Tag
 		ormTagStr := tag.Get(engine.TagIdentifier)
-		fmt.Println(ormTagStr)
 		var col *core.Column
 		fieldValue := v.Field(i)
 		fieldType := fieldValue.Type()
@@ -600,7 +599,7 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 								continue
 							}
 							col.SQLType = core.SQLType{fs[0], 0, 0}
-							if fs[0]=="ENUM" && fs[1][0] == '\'' { //enum
+							if fs[0] == "ENUM" && fs[1][0] == '\'' { //enum
 								options := strings.Split(fs[1][0:len(fs[1])-1], ",")
 								col.Options = make(map[string]int)
 								for k, v := range options {
