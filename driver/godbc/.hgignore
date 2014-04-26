@@ -1,5 +1,0 @@
-syntax:glob
-*.exe
-*.orig
-
-syntax:regexp
