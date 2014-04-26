@@ -24,7 +24,8 @@ type SQLType struct {
 
 func (s *SQLType) IsText() bool {
 	return s.Name == Char || s.Name == Varchar || s.Name == TinyText ||
-		s.Name == Text || s.Name == MediumText || s.Name == LongText
+		s.Name == Text || s.Name == MediumText || s.Name == LongText ||
+		s.Name == Enum
 }
 
 func (s *SQLType) IsBlob() bool {
@@ -42,6 +43,7 @@ var (
 	Integer   = "INTEGER"
 	BigInt    = "BIGINT"
 
+	Enum       = "ENUM"
 	Char       = "CHAR"
 	Varchar    = "VARCHAR"
 	TinyText   = "TINYTEXT"
@@ -84,6 +86,7 @@ var (
 		Integer:   true,
 		BigInt:    true,
 
+		Enum:       true,
 		Char:       true,
 		Varchar:    true,
 		TinyText:   true,
@@ -272,7 +275,7 @@ func SQLType2Type(st SQLType) reflect.Type {
 		return reflect.TypeOf(float32(1))
 	case Double:
 		return reflect.TypeOf(float64(1))
-	case Char, Varchar, TinyText, Text, MediumText, LongText:
+	case Char, Varchar, TinyText, Text, MediumText, LongText, Enum:
 		return reflect.TypeOf("")
 	case TinyBlob, Blob, LongBlob, Bytea, Binary, MediumBlob, VarBinary:
 		return reflect.TypeOf([]byte{})

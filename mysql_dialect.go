@@ -53,16 +53,27 @@ func (db *mysql) SqlType(c *core.Column) string {
 	case core.TimeStampz:
 		res = core.Char
 		c.Length = 64
+	case core.Enum: //mysql enum
+		res = core.Enum
+		res += "("
+		for v,k := range c.Options {
+			if k >0 {
+				res += fmt.Sprintf(",'%v'", v)
+			} else {
+				res += fmt.Sprintf("'%v'", v)
+			}
+		}
+		res += ")"
 	default:
 		res = t
 	}
 
 	var hasLen1 bool = (c.Length > 0)
 	var hasLen2 bool = (c.Length2 > 0)
-	if hasLen1 {
-		res += "(" + strconv.Itoa(c.Length) + ")"
-	} else if hasLen2 {
+	if hasLen2 {
 		res += "(" + strconv.Itoa(c.Length) + "," + strconv.Itoa(c.Length2) + ")"
+	} else if hasLen1 {
+		res += "(" + strconv.Itoa(c.Length) + ")"
 	}
 	return res
 }
@@ -143,23 +154,33 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 		}
 
 		cts := strings.Split(colType, "(")
+		colName := cts[0]
+		colType = strings.ToUpper(colName)
 		var len1, len2 int
 		if len(cts) == 2 {
 			idx := strings.Index(cts[1], ")")
-			lens := strings.Split(cts[1][0:idx], ",")
-			len1, err = strconv.Atoi(strings.TrimSpace(lens[0]))
-			if err != nil {
-				return nil, nil, err
-			}
-			if len(lens) == 2 {
-				len2, err = strconv.Atoi(lens[1])
+			if colType == "ENUM" && cts[1][0] == '\'' { //enum
+				options := strings.Split(cts[1][0:idx], ",")
+				col.Options = make(map[string]int)
+				for k, v := range options {
+					v = strings.TrimSpace(v)
+					v = strings.Trim(v, "'")
+					col.Options[v] = k
+				}
+			} else {
+				lens := strings.Split(cts[1][0:idx], ",")
+				len1, err = strconv.Atoi(strings.TrimSpace(lens[0]))
 				if err != nil {
 					return nil, nil, err
 				}
+				if len(lens) == 2 {
+					len2, err = strconv.Atoi(lens[1])
+					if err != nil {
+						return nil, nil, err
+					}
+				}
 			}
 		}
-		colName := cts[0]
-		colType = strings.ToUpper(colName)
 		col.Length = len1
 		col.Length2 = len2
 		if _, ok := core.SqlTypes[colType]; ok {
