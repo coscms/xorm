@@ -976,7 +976,6 @@ func (session *Session) Get(bean interface{}) (bool, error) {
 
 	if rawRows.Next() {
 		if fields, err := rawRows.Columns(); err == nil {
-			fmt.Println(fields)
 			err = session.row2Bean(rawRows, fields, len(fields), bean)
 		}
 		return true, err
