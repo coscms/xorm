@@ -18,7 +18,7 @@ Xorm is a simple and powerful ORM for Go.
 
 * Query Cache speed up
 
-* Database Reverse support, See [Xorm Tool README](https://github.com/coscms/xorm/blob/master/xorm/README.md)
+* Database Reverse support, See [Xorm Tool README](https://github.com/coscms/xorm/blob/master/README.md)
 
 * Simple cascade loading support
 
