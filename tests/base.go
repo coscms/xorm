@@ -3,12 +3,13 @@ package tests
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/coscms/xorm/core"
 	"github.com/coscms/xorm"
+	"github.com/coscms/xorm/core"
 )
 
 const (

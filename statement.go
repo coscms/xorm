@@ -451,6 +451,10 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 		}
 
 		fieldValue := *fieldValuePtr
+		if fieldValue.Interface() == nil {
+			continue
+		}
+
 		fieldType := reflect.TypeOf(fieldValue.Interface())
 
 		requiredField := useAllCols

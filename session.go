@@ -982,24 +982,6 @@ func (session *Session) Get(bean interface{}) (bool, error) {
 	} else {
 		return false, nil
 	}
-
-	// resultsSlice, err := session.query(sqlStr, args...)
-	// if err != nil {
-	// 	return false, err
-	// }
-	// if len(resultsSlice) < 1 {
-	// 	return false, nil
-	// }
-
-	// err = session.scanMapIntoStruct(bean, resultsSlice[0])
-	// if err != nil {
-	// 	return true, err
-	// }
-	// if len(resultsSlice) == 1 {
-	// 	return true, nil
-	// } else {
-	// 	return true, errors.New("More than one record")
-	// }
 }
 
 // Count counts the records. bean's non-empty fields
@@ -1441,6 +1423,8 @@ func (session *Session) getField(dataStruct *reflect.Value, key string, table *c
 	return fieldValue
 }
 
+type Cell *interface{}
+
 func (session *Session) row2Bean(rows *core.Rows, fields []string, fieldsCount int, bean interface{}) error {
 	dataStruct := rValue(bean)
 	if dataStruct.Kind() != reflect.Struct {
@@ -1449,18 +1433,24 @@ func (session *Session) row2Bean(rows *core.Rows, fields []string, fieldsCount i
 
 	table := session.Engine.autoMapType(dataStruct)
 
-	scanResultContainers := make([]interface{}, len(fields))
+	scanResults := make([]interface{}, len(fields))
 	for i := 0; i < len(fields); i++ {
-		var scanResultContainer interface{}
-		scanResultContainers[i] = &scanResultContainer
+		var cell interface{}
+		scanResults[i] = &cell
 	}
-	if err := rows.Scan(scanResultContainers...); err != nil {
+	if err := rows.Scan(scanResults...); err != nil {
 		return err
 	}
 
+	b, hasBeforeSet := bean.(BeforeSetProcessor)
+
 	for ii, key := range fields {
+		if hasBeforeSet {
+			b.BeforeSet(fields[ii], Cell(scanResults[ii].(*interface{})))
+		}
+
 		if fieldValue := session.getField(&dataStruct, key, table); fieldValue != nil {
-			rawValue := reflect.Indirect(reflect.ValueOf(scanResultContainers[ii]))
+			rawValue := reflect.Indirect(reflect.ValueOf(scanResults[ii]))
 
 			//if row is null then ignore
 			if rawValue.Interface() == nil {
@@ -1468,7 +1458,18 @@ func (session *Session) row2Bean(rows *core.Rows, fields []string, fieldsCount i
 				continue
 			}
 
-			if structConvert, ok := fieldValue.Addr().Interface().(core.Conversion); ok {
+			if fieldValue.CanAddr() {
+				if structConvert, ok := fieldValue.Addr().Interface().(core.Conversion); ok {
+					if data, err := value2Bytes(&rawValue); err == nil {
+						structConvert.FromDB(data)
+					} else {
+						session.Engine.LogError(err)
+					}
+					continue
+				}
+			}
+
+			if structConvert, ok := fieldValue.Interface().(core.Conversion); ok {
 				if data, err := value2Bytes(&rawValue); err == nil {
 					structConvert.FromDB(data)
 				} else {
@@ -2451,6 +2452,16 @@ func (session *Session) value2Interface(col *core.Column, fieldValue reflect.Val
 			}
 		}
 	}
+
+	if fieldConvert, ok := fieldValue.Interface().(core.Conversion); ok {
+		data, err := fieldConvert.ToDB()
+		if err != nil {
+			return 0, err
+		} else {
+			return string(data), nil
+		}
+	}
+
 	fieldType := fieldValue.Type()
 	k := fieldType.Kind()
 	if k == reflect.Ptr {
@@ -2470,11 +2481,6 @@ func (session *Session) value2Interface(col *core.Column, fieldValue reflect.Val
 	switch k {
 	case reflect.Bool:
 		return fieldValue.Bool(), nil
-		/*if fieldValue.Bool() {
-			return 1, nil
-		} else {
-			return 0, nil
-		}*/
 	case reflect.String:
 		return fieldValue.String(), nil
 	case reflect.Struct:
