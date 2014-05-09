@@ -27,7 +27,7 @@
 * **v0.3.1**
 
 	新特性:
-	* 支持 MSSQL DB 通过 ODBC 驱动 ([github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc));
+	* 支持 MSSQL DB 通过 ODBC 驱动 ([github.com/lunny/godbc](https://github.com/lunny/godbc));
 	* 通过多个pk标记支持联合主键; 
 	* 新增 Rows() API 用来遍历查询结果，该函数提供了类似sql.Rows的相似用法，可作为 Iterate() API 的可选替代；
 	* ORM 结构体现在允许内建类型的指针作为成员，使得数据库为null成为可能；

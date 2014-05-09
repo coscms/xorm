@@ -8,11 +8,6 @@ import (
 	"sync"
 )
 
-var (
-	ErrNoMapPointer    = errors.New("mp should be a map's pointer")
-	ErrNoStructPointer = errors.New("mp should be a map's pointer")
-)
-
 func MapToSlice(query string, mp interface{}) (string, []interface{}, error) {
 	vv := reflect.ValueOf(mp)
 	if vv.Kind() != reflect.Ptr || vv.Elem().Kind() != reflect.Map {

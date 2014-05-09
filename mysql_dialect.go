@@ -56,8 +56,8 @@ func (db *mysql) SqlType(c *core.Column) string {
 	case core.Enum: //mysql enum
 		res = core.Enum
 		res += "("
-		for v,k := range c.Options {
-			if k >0 {
+		for v, k := range c.EnumOptions {
+			if k > 0 {
 				res += fmt.Sprintf(",'%v'", v)
 			} else {
 				res += fmt.Sprintf("'%v'", v)
@@ -70,10 +70,10 @@ func (db *mysql) SqlType(c *core.Column) string {
 
 	var hasLen1 bool = (c.Length > 0)
 	var hasLen2 bool = (c.Length2 > 0)
-	if hasLen2 {
-		res += "(" + strconv.Itoa(c.Length) + "," + strconv.Itoa(c.Length2) + ")"
-	} else if hasLen1 {
+	if hasLen1 {
 		res += "(" + strconv.Itoa(c.Length) + ")"
+	} else if hasLen2 {
+		res += "(" + strconv.Itoa(c.Length) + "," + strconv.Itoa(c.Length2) + ")"
 	}
 	return res
 }
@@ -109,11 +109,11 @@ func (db *mysql) IndexCheckSql(tableName, idxName string) (string, []interface{}
 	return sql, args
 }
 
-func (db *mysql) ColumnCheckSql(tableName, colName string) (string, []interface{}) {
+/*func (db *mysql) ColumnCheckSql(tableName, colName string) (string, []interface{}) {
 	args := []interface{}{db.DbName, tableName, colName}
 	sql := "SELECT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ? AND `COLUMN_NAME` = ?"
 	return sql, args
-}
+}*/
 
 func (db *mysql) TableCheckSql(tableName string) (string, []interface{}) {
 	args := []interface{}{db.DbName, tableName}
@@ -151,6 +151,9 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 
 		if colDefault != nil {
 			col.Default = *colDefault
+			if col.Default == "" {
+				col.DefaultIsEmpty = true
+			}
 		}
 
 		cts := strings.Split(colType, "(")
@@ -159,13 +162,13 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 		var len1, len2 int
 		if len(cts) == 2 {
 			idx := strings.Index(cts[1], ")")
-			if colType == "ENUM" && cts[1][0] == '\'' { //enum
+			if colType == core.Enum && cts[1][0] == '\'' { //enum
 				options := strings.Split(cts[1][0:idx], ",")
-				col.Options = make(map[string]int)
+				col.EnumOptions = make(map[string]int)
 				for k, v := range options {
 					v = strings.TrimSpace(v)
 					v = strings.Trim(v, "'")
-					col.Options[v] = k
+					col.EnumOptions[v] = k
 				}
 			} else {
 				lens := strings.Split(cts[1][0:idx], ",")
@@ -203,6 +206,10 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 		if col.SQLType.IsText() {
 			if col.Default != "" {
 				col.Default = "'" + col.Default + "'"
+			} else {
+				if col.DefaultIsEmpty {
+					col.Default = "''"
+				}
 			}
 		}
 		cols[col.Name] = col

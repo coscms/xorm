@@ -38,7 +38,7 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 * Postgres: [github.com/lib/pq](https://github.com/lib/pq)
 
-* MsSql: [github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc)
+* MsSql: [github.com/lunny/godbc](https://github.com/lunny/godbc)
 
 ## 更新日志
 
@@ -69,7 +69,7 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 * **v0.3.1**
 
 	新特性:
-	* 支持 MSSQL DB 通过 ODBC 驱动 ([github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc));
+	* 支持 MSSQL DB 通过 ODBC 驱动 ([github.com/lunny/godbc](https://github.com/lunny/godbc));
 	* 通过多个pk标记支持联合主键; 
 	* 新增 Rows() API 用来遍历查询结果，该函数提供了类似sql.Rows的相似用法，可作为 Iterate() API 的可选替代；
 	* ORM 结构体现在允许内建类型的指针作为成员，使得数据库为null成为可能；
@@ -94,7 +94,7 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 ## 文档
 
-* [快速开始](https://github.com/coscms/xorm/blob/master/docs/QuickStart.md)
+* [快速开始](https://github.com/coscms/xorm/blob/master/docs/QuickStartCN.md)
 
 * [GoWalker代码文档](http://gowalker.org/github.com/coscms/xorm)
 
@@ -124,7 +124,7 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 请加入QQ群：280360085 进行讨论。
 
-# 贡献
+## 贡献
 
 如果您也想为Xorm贡献您的力量，请查看 [CONTRIBUTING](https://github.com/coscms/xorm/blob/master/CONTRIBUTING.md)
 

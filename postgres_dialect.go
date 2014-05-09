@@ -59,10 +59,10 @@ func (db *postgres) SqlType(c *core.Column) string {
 
 	var hasLen1 bool = (c.Length > 0)
 	var hasLen2 bool = (c.Length2 > 0)
-	if hasLen2 {
-		res += "(" + strconv.Itoa(c.Length) + "," + strconv.Itoa(c.Length2) + ")"
-	} else if hasLen1 {
+	if hasLen1 {
 		res += "(" + strconv.Itoa(c.Length) + ")"
+	} else if hasLen2 {
+		res += "(" + strconv.Itoa(c.Length) + "," + strconv.Itoa(c.Length2) + ")"
 	}
 	return res
 }
@@ -102,10 +102,28 @@ func (db *postgres) TableCheckSql(tableName string) (string, []interface{}) {
 	return `SELECT tablename FROM pg_tables WHERE tablename = ?`, args
 }
 
-func (db *postgres) ColumnCheckSql(tableName, colName string) (string, []interface{}) {
+/*func (db *postgres) ColumnCheckSql(tableName, colName string) (string, []interface{}) {
 	args := []interface{}{tableName, colName}
 	return "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ?" +
 		" AND column_name = ?", args
+}*/
+
+func (db *postgres) IsColumnExist(tableName string, col *core.Column) (bool, error) {
+	args := []interface{}{tableName, col.Name}
+
+	//query := "SELECT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ? AND `COLUMN_NAME` = ?"
+	query := "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = $1" +
+		" AND column_name = $2"
+	rows, err := db.DB().Query(query, args...)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (db *postgres) GetColumns(tableName string) ([]string, map[string]*core.Column, error) {

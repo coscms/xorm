@@ -23,7 +23,7 @@ xorm 快速入门
 	* [5.6.Count方法](#66)
 	* [5.7.Rows方法](#67)
 * [6.更新数据](#70)
-* [6.1.乐观锁](#71)
+	* [6.1.乐观锁](#71)
 * [7.删除数据](#80)
 * [8.执行SQL查询](#90)
 * [9.执行SQL命令](#100)
@@ -74,7 +74,7 @@ xorm当前支持五种驱动四个数据库如下：
 
 * Postgres: [github.com/lib/pq](https://github.com/lib/pq)
 
-* MsSql: [github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc)
+* MsSql: [github.com/lunny/godbc](https://githubcom/lunny/godbc)
 
 NewEngine传入的参数和`sql.Open`传入的参数完全相同，因此，使用哪个驱动前，请查看此驱动中关于传入参数的说明文档。
 
@@ -141,7 +141,7 @@ engine.SetColumnMapper(SnakeMapper{})
 
 如果所有的命名都是按照IMapper的映射来操作的，那当然是最理想的。但是如果碰到某个表名或者某个字段名跟映射规则不匹配时，我们就需要别的机制来改变。
 
-* 如果struct拥有`Tablename() string`的成员方法，那么此方法的返回值即是该struct默认对应的数据库表名。
+* 如果struct拥有`TableName() string`的成员方法，那么此方法的返回值即是该struct默认对应的数据库表名。
 
 * 通过`engine.Table()`方法可以改变struct对应的数据库表的名称，通过sturct中field对应的Tag中使用`xorm:"'column_name'"`可以使该field对应的Column名称为指定名称。这里使用两个单引号将Column名称括起来是为了防止名称冲突，因为我们在Tag中还可以对这个Column进行更多的定义。如果名称不冲突的情况，单引号也可以不使用。
 
@@ -767,7 +767,7 @@ xorm支持两种方式的事件，一种是在Struct中的特定方法来作为�
 xorm工具提供了xorm命令，能够帮助做很多事情。
 
 ### 13.1.反转命令
-参见 [xorm工具](https://github.com/coscms/xorm/tree/master/xorm)
+参见 [xorm工具](https://github.com/coscms/xorm/cmd)
 
 <a name="140" id="140"></a>
 ## 14.Examples

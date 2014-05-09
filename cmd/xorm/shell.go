@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/coscms/xorm"
 	"strings"
+
+	"github.com/coscms/xorm"
 )
 
 var CmdShell = &Command{

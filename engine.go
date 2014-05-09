@@ -297,6 +297,7 @@ func (engine *Engine) DumpAll(w io.Writer) error {
 		if err != nil {
 			return err
 		}
+
 		cols, err := rows.Columns()
 		if err != nil {
 			return err
@@ -317,15 +318,17 @@ func (engine *Engine) DumpAll(w io.Writer) error {
 			}
 
 			var temp string
-			for _, d := range dest {
+			for i, d := range dest {
+				col := table.GetColumn(cols[i])
 				if d == nil {
 					temp += ", NULL"
-				} else if reflect.TypeOf(d).Kind() == reflect.String {
-					temp += ", '" + strings.Replace(d.(string), "'", "''", -1) + "'"
-				} else if reflect.TypeOf(d).Kind() == reflect.Slice {
+				} else if col.SQLType.IsText() || col.SQLType.IsTime() {
+					var v = fmt.Sprintf("%s", d)
+					temp += ", '" + strings.Replace(v, "'", "''", -1) + "'"
+				} else if col.SQLType.IsBlob() /*reflect.TypeOf(d).Kind() == reflect.Slice*/ {
 					temp += fmt.Sprintf(", %s", engine.dialect.FormatBytes(d.([]byte)))
 				} else {
-					temp += fmt.Sprintf(", %v", d)
+					temp += fmt.Sprintf(", %s", d)
 				}
 			}
 			_, err = io.WriteString(w, temp[2:]+");\n\n")
@@ -587,14 +590,35 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 					continue
 				}
 				if strings.ToUpper(tags[0]) == "EXTENDS" {
-					fieldValue = reflect.Indirect(fieldValue)
+
+					//fieldValue = reflect.Indirect(fieldValue)
+					//fmt.Println("----", fieldValue.Kind())
 					if fieldValue.Kind() == reflect.Struct {
 						//parentTable := mappingTable(fieldType, tableMapper, colMapper, dialect, tagId)
 						parentTable := engine.mapType(fieldValue)
 						for _, col := range parentTable.Columns() {
-							col.FieldName = fmt.Sprintf("%v.%v", fieldValue.Type().Name(), col.FieldName)
+							col.FieldName = fmt.Sprintf("%v.%v", t.Field(i).Name, col.FieldName)
+							//fmt.Println("---", col.FieldName)
 							table.AddColumn(col)
 						}
+
+						continue
+					} else if fieldValue.Kind() == reflect.Ptr {
+						f := fieldValue.Type().Elem()
+						if f.Kind() == reflect.Struct {
+							fieldValue = fieldValue.Elem()
+							if !fieldValue.IsValid() || fieldValue.IsNil() {
+								fieldValue = reflect.New(f).Elem()
+							}
+							//fmt.Println("00000", fieldValue)
+						}
+
+						parentTable := engine.mapType(fieldValue)
+						for _, col := range parentTable.Columns() {
+							col.FieldName = fmt.Sprintf("%v.%v", t.Field(i).Name, col.FieldName)
+							table.AddColumn(col)
+						}
+
 						continue
 					}
 					//TODO: warning
@@ -662,13 +686,13 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 								continue
 							}
 							col.SQLType = core.SQLType{fs[0], 0, 0}
-							if fs[0] == "ENUM" && fs[1][0] == '\'' { //enum
+							if fs[0] == core.Enum && fs[1][0] == '\'' { //enum
 								options := strings.Split(fs[1][0:len(fs[1])-1], ",")
-								col.Options = make(map[string]int)
+								col.EnumOptions = make(map[string]int)
 								for k, v := range options {
 									v = strings.TrimSpace(v)
 									v = strings.Trim(v, "'")
-									col.Options[v] = k
+									col.EnumOptions[v] = k
 								}
 							} else {
 								fs2 := strings.Split(fs[1][0:len(fs[1])-1], ",")
@@ -780,13 +804,19 @@ func (engine *Engine) IsTableEmpty(bean interface{}) (bool, error) {
 // If a table is exist
 func (engine *Engine) IsTableExist(bean interface{}) (bool, error) {
 	v := rValue(bean)
-	if v.Type().Kind() != reflect.Struct {
+	var tableName string
+	if v.Type().Kind() == reflect.String {
+		tableName = bean.(string)
+	} else if v.Type().Kind() == reflect.Struct {
+		table := engine.autoMapType(v)
+		tableName = table.Name
+	} else {
 		return false, errors.New("bean should be a struct or struct's point")
 	}
-	table := engine.autoMapType(v)
+
 	session := engine.NewSession()
 	defer session.Close()
-	has, err := session.isTableExist(table.Name)
+	has, err := session.isTableExist(tableName)
 	return has, err
 }
 
@@ -909,7 +939,7 @@ func (engine *Engine) Sync(beans ...interface{}) error {
 				session := engine.NewSession()
 				session.Statement.RefTable = table
 				defer session.Close()
-				isExist, err := session.isColumnExist(table.Name, col.Name)
+				isExist, err := session.isColumnExist(table.Name, col)
 				if err != nil {
 					return err
 				}
@@ -1193,7 +1223,11 @@ func (engine *Engine) FormatTime(sqlTypeName string, t time.Time) (v interface{}
 	case core.Date:
 		v = engine.TZTime(t).Format("2006-01-02")
 	case core.DateTime, core.TimeStamp:
-		v = engine.TZTime(t).Format("2006-01-02 15:04:05")
+		if engine.dialect.DBType() == "ql" {
+			v = engine.TZTime(t)
+		} else {
+			v = engine.TZTime(t).Format("2006-01-02 15:04:05")
+		}
 	case core.TimeStampz:
 		if engine.dialect.DBType() == core.MSSQL {
 			v = engine.TZTime(t).Format("2006-01-02T15:04:05.9999999Z07:00")

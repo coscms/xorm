@@ -27,7 +27,7 @@
 * **v0.3.1** 
 
 	Features:
-	* Support MSSQL DB via ODBC driver ([github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc));
+	* Support MSSQL DB via ODBC driver ([github.com/lunny/godbc](https://github.com/lunny/godbc));
 	* Composite Key, using multiple pk xorm tag 
 	* Added Row() API as alternative to Iterate() API for traversing result set, provide similar usages to sql.Rows type
 	* ORM struct allowed declaration of pointer builtin type as members to allow null DB fields 

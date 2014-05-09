@@ -31,7 +31,7 @@ type Column struct {
 	IsVersion       bool
 	fieldPath       []string
 	DefaultIsEmpty  bool
-	Options         map[string]int
+	EnumOptions     map[string]int
 }
 
 func NewColumn(name, fieldName string, sqlType SQLType, len1, len2 int, nullable bool) *Column {
@@ -53,7 +53,7 @@ func NewColumn(name, fieldName string, sqlType SQLType, len1, len2 int, nullable
 		IsVersion:       false,
 		fieldPath:       nil,
 		DefaultIsEmpty:  false,
-		Options:         make(map[string]int),
+		EnumOptions:     make(map[string]int),
 	}
 }
 
@@ -123,7 +123,21 @@ func (col *Column) ValueOfV(dataStruct *reflect.Value) (*reflect.Value, error) {
 	} else if len(col.fieldPath) == 2 {
 		parentField := dataStruct.FieldByName(col.fieldPath[0])
 		if parentField.IsValid() {
-			fieldValue = parentField.FieldByName(col.fieldPath[1])
+			if parentField.Kind() == reflect.Struct {
+				fieldValue = parentField.FieldByName(col.fieldPath[1])
+			} else if parentField.Kind() == reflect.Ptr {
+				if parentField.IsNil() {
+					parentField.Set(reflect.New(parentField.Type().Elem()))
+					fieldValue = parentField.Elem().FieldByName(col.fieldPath[1])
+				} else {
+					parentField = parentField.Elem()
+					if parentField.IsValid() {
+						fieldValue = parentField.FieldByName(col.fieldPath[1])
+					} else {
+						err = fmt.Errorf("field  %v is not valid", col.FieldName)
+					}
+				}
+			}
 		} else {
 			err = fmt.Errorf("field  %v is not valid", col.FieldName)
 		}

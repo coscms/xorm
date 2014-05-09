@@ -18,7 +18,7 @@ Xorm is a simple and powerful ORM for Go.
 
 * Query Cache speed up
 
-* Database Reverse support, See [Xorm Tool README](https://github.com/coscms/xorm/blob/master/cmd/README.md)
+* Database Reverse support, See [Xorm Tool README](https://github.com/coscms/xorm/cmd/blob/master/README.md)
 
 * Simple cascade loading support
 
@@ -37,7 +37,7 @@ Drivers for Go's sql package which currently support database/sql includes:
 
 * Postgres: [github.com/lib/pq](https://github.com/lib/pq)
 
-* MsSql: [github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc)
+* MsSql: [github.com/lunny/godbc](https://github.com/lunny/godbc)
 
 # Changelog
 
@@ -68,7 +68,7 @@ Drivers for Go's sql package which currently support database/sql includes:
 * **v0.3.1** 
 
 	Features:
-	* Support MSSQL DB via ODBC driver ([github.com/coscms/xorm/driver/godbc](https://github.com/coscms/xorm/driver/godbc));
+	* Support MSSQL DB via ODBC driver ([github.com/lunny/godbc](https://github.com/lunny/godbc));
 	* Composite Key, using multiple pk xorm tag 
 	* Added Row() API as alternative to Iterate() API for traversing result set, provide similar usages to sql.Rows type
 	* ORM struct allowed declaration of pointer builtin type as members to allow null DB fields 
@@ -96,7 +96,7 @@ Or
 
 * [GoWalker](http://gowalker.org/github.com/coscms/xorm)
 
-* [Quick Start](https://github.com/coscms/xorm/blob/master/docs/QuickStartEn.md)
+* [Quick Start](https://github.com/coscms/xorm/blob/master/docs/QuickStart.md)
 
 # Cases
 
