@@ -4,7 +4,7 @@
 	新特性:
 	* 移动xorm cmd [github.com/coscms/xorm/cmd](github.com/coscms/xorm/cmd)
 	* 在重构一般DB操作核心库 [github.com/coscms/xorm/core](https://github.com/coscms/xorm/core)
-	* 移动测试github.com/复XORM/测试 [github.com/coscms/xorm/tests](github.com/coscms/xorm/tests)
+	* 移动测试github.com/XORM/tests [github.com/coscms/xorm/tests](github.com/coscms/xorm/tests)
 
 	改进：
 	* Prepared statement 缓存

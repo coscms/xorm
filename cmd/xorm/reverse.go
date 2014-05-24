@@ -8,16 +8,15 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings" //[SWH|+]
+	"strings"
 	"text/template"
 
-	_ "github.com/bylevel/pq"
 	"github.com/dvirsky/go-pylog/logging"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/coscms/xorm/core"
 	"github.com/coscms/xorm"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 	_ "github.com/ziutek/mymysql/godrv"
 )
 

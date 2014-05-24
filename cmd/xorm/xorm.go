@@ -19,7 +19,13 @@ import (
 // Test that go1.1 tag above is included in builds. main.go refers to this definition.
 const go11tag = true
 
-const version = "0.1"
+const version = "0.2.0524"
+
+var supportedDrivers = map[string]string{
+	"mysql":    "github.com/go-sql-driver/mysql",
+	"mymysql":  "github.com/ziutek/mymysql/godrv",
+	"postgres": "github.com/lib/pq",
+}
 
 // Commands lists the available commands and help topics.
 // The order here is the order in which they are printed by 'gopm help'.
@@ -27,6 +33,8 @@ var commands = []*Command{
 	CmdReverse,
 	CmdShell,
 	CmdDump,
+	CmdDriver,
+	CmdSource,
 }
 
 func init() {
@@ -74,6 +82,10 @@ func setExitStatus(n int) {
 }
 
 var usageTemplate = `xorm is a database tool based xorm package.
+Version:
+
+    ` + version + `
+
 Usage:
 
     xorm command [arguments]
