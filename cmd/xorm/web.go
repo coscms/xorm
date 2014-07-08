@@ -9,7 +9,7 @@ import (
 	"github.com/coscms/xorm/core"
 	_ "github.com/go-xorm/ql"
 	"github.com/coscms/xorm"
-	"github.com/go-xweb/xweb"
+	"github.com/coscms/xweb"
 	_ "github.com/lunny/ql/driver"
 )
 
