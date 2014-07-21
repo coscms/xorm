@@ -4,7 +4,7 @@
 
 xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作非常简便。
 
-[![Build Status](https://drone.io/github.com/coscms/xorm/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm)
+[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm)
 
 ## 特性
 

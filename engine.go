@@ -185,28 +185,52 @@ func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 // logging error
 func (engine *Engine) LogError(contents ...interface{}) {
 	if engine.ShowErr {
-		engine.Logger.Err(fmt.Sprintln(contents...))
+		engine.Logger.Err(fmt.Sprint(contents...))
 	}
 }
 
-// logging error
+func (engine *Engine) LogErrorf(format string, contents ...interface{}) {
+	if engine.ShowErr {
+		engine.Logger.Err(fmt.Sprintf(format, contents...))
+	}
+}
+
+// logging info
 func (engine *Engine) LogInfo(contents ...interface{}) {
 	if engine.ShowInfo {
-		engine.Logger.Info(fmt.Sprintln(contents...))
+		engine.Logger.Info(fmt.Sprint(contents...))
+	}
+}
+
+func (engine *Engine) LogInfof(format string, contents ...interface{}) {
+	if engine.ShowErr {
+		engine.Logger.Info(fmt.Sprintf(format, contents...))
 	}
 }
 
 // logging debug
 func (engine *Engine) LogDebug(contents ...interface{}) {
 	if engine.ShowDebug {
-		engine.Logger.Debug(fmt.Sprintln(contents...))
+		engine.Logger.Debug(fmt.Sprint(contents...))
+	}
+}
+
+func (engine *Engine) LogDebugf(format string, contents ...interface{}) {
+	if engine.ShowDebug {
+		engine.Logger.Debug(fmt.Sprintf(format, contents...))
 	}
 }
 
 // logging warn
 func (engine *Engine) LogWarn(contents ...interface{}) {
 	if engine.ShowWarn {
-		engine.Logger.Warning(fmt.Sprintln(contents...))
+		engine.Logger.Warning(fmt.Sprint(contents...))
+	}
+}
+
+func (engine *Engine) LogWarnf(format string, contents ...interface{}) {
+	if engine.ShowWarn {
+		engine.Logger.Warning(fmt.Sprintf(format, contents...))
 	}
 }
 
@@ -459,6 +483,13 @@ func (engine *Engine) Incr(column string, arg ...interface{}) *Session {
 	session := engine.NewSession()
 	session.IsAutoClose = true
 	return session.Incr(column, arg...)
+}
+
+// Method Decr provides a update string like "column = column - ?"
+func (engine *Engine) Decr(column string, arg ...interface{}) *Session {
+	session := engine.NewSession()
+	session.IsAutoClose = true
+	return session.Decr(column, arg...)
 }
 
 // Temporarily change the Get, Find, Update's table
@@ -1063,20 +1094,20 @@ func (engine *Engine) Sync2(beans ...interface{}) error {
 							if engine.dialect.DBType() == core.MYSQL {
 								_, err = engine.Exec(engine.dialect.ModifyColumnSql(table.Name, col))
 							} else {
-								engine.LogWarn("Table %s Column %s Old data type is %s, new data type is %s",
+								engine.LogWarnf("Table %s Column %s db type is %s, struct type is %s\n",
 									table.Name, col.Name, oriCol.SQLType.Name, col.SQLType.Name)
 							}
 						} else {
-							engine.LogWarn("Table %s Column %s Old data type is %s, new data type is %s",
+							engine.LogWarnf("Table %s Column %s db type is %s, struct type is %s",
 								table.Name, col.Name, oriCol.SQLType.Name, col.SQLType.Name)
 						}
 					}
 					if col.Default != oriCol.Default {
-						engine.LogWarn("Table %s Column %s Old default is %s, new default is %s",
+						engine.LogWarnf("Table %s Column %s db default is %s, struct default is %s",
 							table.Name, col.Name, oriCol.Default, col.Default)
 					}
 					if col.Nullable != oriCol.Nullable {
-						engine.LogWarn("Table %s Column %s Old nullable is %v, new nullable is %v",
+						engine.LogWarnf("Table %s Column %s db nullable is %v, struct nullable is %v",
 							table.Name, col.Name, oriCol.Nullable, col.Nullable)
 					}
 				} else {

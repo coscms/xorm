@@ -2,7 +2,7 @@
 
 Xorm is a simple and powerful ORM for Go.
 
-[![Build Status](https://drone.io/github.com/coscms/xorm/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
 # Features
 
