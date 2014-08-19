@@ -219,12 +219,7 @@ func (session *Session) OrderBy(order string) *Session {
 
 // Method Desc provide desc order by query condition, the input parameters are columns.
 func (session *Session) Desc(colNames ...string) *Session {
-	if session.Statement.OrderStr != "" {
-		session.Statement.OrderStr += ", "
-	}
-	newColNames := col2NewCols(colNames...)
-	sqlStr := strings.Join(newColNames, session.Engine.Quote(" DESC, "))
-	session.Statement.OrderStr += session.Engine.Quote(sqlStr) + " DESC"
+	session.Statement.Desc(colNames...)
 	return session
 }
 
@@ -848,8 +843,9 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 	for j := 0; j < len(temps); j++ {
 		bean := temps[j]
 		if bean == nil {
-			session.Engine.LogError("[xorm:cacheFind] cache error:", tableName, ides[j], bean)
-			return errors.New("cache error")
+			session.Engine.LogWarn("[xorm:cacheFind] cache no hit:", tableName, ides[j])
+			// return errors.New("cache error") // !nashtsai! no need to return error, but continue instead
+			continue
 		}
 		if sliceValue.Kind() == reflect.Slice {
 			if t.Kind() == reflect.Ptr {

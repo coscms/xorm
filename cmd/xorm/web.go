@@ -10,7 +10,7 @@ import (
 	_ "github.com/go-xorm/ql"
 	"github.com/coscms/xorm"
 	"github.com/coscms/xweb"
-	_ "github.com/lunny/ql/driver"
+	//_ "github.com/go-xorm/ql/driver"
 )
 
 var CmdWeb = &Command{
