@@ -31,13 +31,16 @@ type Engine struct {
 	mutex  *sync.RWMutex
 	Cacher core.Cacher
 
+	ShowSQL bool
+
+	// !nashtsai! TODO ought to deprecate these but having logger to control its log level
 	ShowInfo  bool
-	ShowSQL   bool
 	ShowErr   bool
 	ShowDebug bool
 	ShowWarn  bool
+	// --227
 
-	Logger     ILogger // io.Writer
+	Logger     core.ILogger
 	TZLocation *time.Location
 }
 
@@ -174,6 +177,7 @@ func (engine *Engine) Ping() error {
 // logging sql
 func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 	if engine.ShowSQL {
+		engine.overrideLogLevel(core.LOG_INFO)
 		if len(sqlArgs) > 0 {
 			engine.Logger.Info(fmt.Sprintf("[sql] %v [args] %v", sqlStr, sqlArgs))
 		} else {
@@ -183,54 +187,72 @@ func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 }
 
 // logging error
+func (engine *Engine) overrideLogLevel(overrideLevel core.LogLevel) {
+	logLevel := engine.Logger.Level()
+	if logLevel == core.LOG_UNKNOWN {
+		// intend to left empty
+	} else if logLevel < overrideLevel { // TODO can remove if deprecated engine.ShowErr
+		engine.Logger.SetLevel(core.LOG_ERR) // try override logger's log level
+	}
+
+}
+
 func (engine *Engine) LogError(contents ...interface{}) {
 	if engine.ShowErr {
-		engine.Logger.Err(fmt.Sprint(contents...))
+		engine.overrideLogLevel(core.LOG_ERR)
+		engine.Logger.Err(contents...)
 	}
 }
 
 func (engine *Engine) LogErrorf(format string, contents ...interface{}) {
 	if engine.ShowErr {
-		engine.Logger.Err(fmt.Sprintf(format, contents...))
+		engine.overrideLogLevel(core.LOG_ERR)
+		engine.Logger.Errf(format, contents...)
 	}
 }
 
 // logging info
 func (engine *Engine) LogInfo(contents ...interface{}) {
 	if engine.ShowInfo {
-		engine.Logger.Info(fmt.Sprint(contents...))
+		engine.overrideLogLevel(core.LOG_INFO)
+		engine.Logger.Info(contents...)
 	}
 }
 
 func (engine *Engine) LogInfof(format string, contents ...interface{}) {
 	if engine.ShowErr {
-		engine.Logger.Info(fmt.Sprintf(format, contents...))
+		engine.overrideLogLevel(core.LOG_INFO)
+		engine.Logger.Infof(format, contents...)
 	}
 }
 
 // logging debug
 func (engine *Engine) LogDebug(contents ...interface{}) {
 	if engine.ShowDebug {
-		engine.Logger.Debug(fmt.Sprint(contents...))
+		engine.overrideLogLevel(core.LOG_DEBUG)
+		engine.Logger.Debug(contents...)
 	}
 }
 
 func (engine *Engine) LogDebugf(format string, contents ...interface{}) {
 	if engine.ShowDebug {
-		engine.Logger.Debug(fmt.Sprintf(format, contents...))
+		engine.overrideLogLevel(core.LOG_DEBUG)
+		engine.Logger.Debugf(format, contents...)
 	}
 }
 
 // logging warn
 func (engine *Engine) LogWarn(contents ...interface{}) {
 	if engine.ShowWarn {
-		engine.Logger.Warning(fmt.Sprint(contents...))
+		engine.overrideLogLevel(core.LOG_WARNING)
+		engine.Logger.Warning(contents...)
 	}
 }
 
 func (engine *Engine) LogWarnf(format string, contents ...interface{}) {
 	if engine.ShowWarn {
-		engine.Logger.Warning(fmt.Sprintf(format, contents...))
+		engine.overrideLogLevel(core.LOG_WARNING)
+		engine.Logger.Warningf(format, contents...)
 	}
 }
 
