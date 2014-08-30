@@ -1081,8 +1081,11 @@ func (engine *Engine) Sync2(beans ...interface{}) error {
 		return err
 	}
 
+	structTables := make([]*core.Table, 0)
+
 	for _, bean := range beans {
 		table := engine.autoMap(bean)
+		structTables = append(structTables, table)
 
 		var oriTable *core.Table
 		for _, tb := range tables {
@@ -1118,19 +1121,22 @@ func (engine *Engine) Sync2(beans ...interface{}) error {
 				}
 
 				if oriCol != nil {
-					if col.SQLType.Name != oriCol.SQLType.Name {
-						if col.SQLType.Name == core.Text &&
-							oriCol.SQLType.Name == core.Varchar {
+					expectedType := engine.dialect.SqlType(col)
+					//curType := oriCol.SQLType.Name
+					curType := engine.dialect.SqlType(oriCol)
+					if expectedType != curType {
+						if expectedType == core.Text &&
+							curType == core.Varchar {
 							// currently only support mysql
 							if engine.dialect.DBType() == core.MYSQL {
 								_, err = engine.Exec(engine.dialect.ModifyColumnSql(table.Name, col))
 							} else {
 								engine.LogWarnf("Table %s Column %s db type is %s, struct type is %s\n",
-									table.Name, col.Name, oriCol.SQLType.Name, col.SQLType.Name)
+									table.Name, col.Name, curType, expectedType)
 							}
 						} else {
 							engine.LogWarnf("Table %s Column %s db type is %s, struct type is %s",
-								table.Name, col.Name, oriCol.SQLType.Name, col.SQLType.Name)
+								table.Name, col.Name, curType, expectedType)
 						}
 					}
 					if col.Default != oriCol.Default {
@@ -1201,6 +1207,28 @@ func (engine *Engine) Sync2(beans ...interface{}) error {
 						return err
 					}
 				}
+			}
+		}
+	}
+
+	for _, table := range tables {
+		var oriTable *core.Table
+		for _, structTable := range structTables {
+			if table.Name == structTable.Name {
+				oriTable = structTable
+				break
+			}
+		}
+
+		if oriTable == nil {
+			//engine.LogWarnf("Table %s has no struct to mapping it", table.Name)
+			continue
+		}
+
+		for _, colName := range table.ColumnsSeq() {
+			if oriTable.GetColumn(colName) == nil {
+				engine.LogWarnf("Table %s has column %s but struct has not related field",
+					table.Name, colName)
 			}
 		}
 	}

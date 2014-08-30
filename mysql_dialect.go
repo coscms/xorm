@@ -78,6 +78,11 @@ func (db *mysql) SqlType(c *core.Column) string {
 	var hasLen1 bool = (c.Length > 0)
 	var hasLen2 bool = (c.Length2 > 0)
 
+	if res == core.BigInt && !hasLen1 && !hasLen2 {
+		c.Length = 20
+		hasLen1 = true
+	}
+
 	if hasLen2 {
 		res += "(" + strconv.Itoa(c.Length) + "," + strconv.Itoa(c.Length2) + ")"
 	} else if hasLen1 {
