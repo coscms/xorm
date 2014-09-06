@@ -447,10 +447,12 @@ func (session *Session) exec(sqlStr string, args ...interface{}) (sql.Result, er
 
 	session.Engine.logSQL(sqlStr, args...)
 
-	if session.IsAutoCommit {
-		return session.innerExec(sqlStr, args...)
-	}
-	return session.Tx.Exec(sqlStr, args...)
+	return session.Engine.LogSQLExecutionTime(sqlStr, args, func() (sql.Result, error) {
+		if session.IsAutoCommit {
+			return session.innerExec(sqlStr, args...)
+		}
+		return session.Tx.Exec(sqlStr, args...)
+	})
 }
 
 // Exec raw sql
@@ -469,7 +471,7 @@ func (session *Session) Exec(sqlStr string, args ...interface{}) (sql.Result, er
 
 // this function create a table according a bean
 func (session *Session) CreateTable(bean interface{}) error {
-	session.Statement.RefTable = session.Engine.autoMap(bean)
+	session.Statement.RefTable = session.Engine.TableInfo(bean)
 
 	err := session.newDb()
 	if err != nil {
@@ -485,7 +487,7 @@ func (session *Session) CreateTable(bean interface{}) error {
 
 // create indexes
 func (session *Session) CreateIndexes(bean interface{}) error {
-	session.Statement.RefTable = session.Engine.autoMap(bean)
+	session.Statement.RefTable = session.Engine.TableInfo(bean)
 
 	err := session.newDb()
 	if err != nil {
@@ -508,7 +510,7 @@ func (session *Session) CreateIndexes(bean interface{}) error {
 
 // create uniques
 func (session *Session) CreateUniques(bean interface{}) error {
-	session.Statement.RefTable = session.Engine.autoMap(bean)
+	session.Statement.RefTable = session.Engine.TableInfo(bean)
 
 	err := session.newDb()
 	if err != nil {
@@ -595,7 +597,7 @@ func (session *Session) DropTable(bean interface{}) error {
 	if t.Kind() == reflect.String {
 		session.Statement.AltTableName = bean.(string)
 	} else if t.Kind() == reflect.Struct {
-		session.Statement.RefTable = session.Engine.autoMap(bean)
+		session.Statement.RefTable = session.Engine.TableInfo(bean)
 	} else {
 		return errors.New("Unsupported type")
 	}
@@ -651,6 +653,7 @@ func (session *Session) cacheGet(bean interface{}, sqlStr string, args ...interf
 			if v, ok := data[session.Statement.RefTable.PrimaryKeys[0]]; !ok {
 				return false, ErrCacheFailed
 			} else {
+				// TODO https://github.com/coscms/xorm/issues/144, PK may not always be int64
 				id, err = strconv.ParseInt(string(v), 10, 64)
 				if err != nil {
 					return false, err
@@ -951,7 +954,7 @@ func (session *Session) Get(bean interface{}) (bool, error) {
 	var args []interface{}
 
 	if session.Statement.RefTable == nil {
-		session.Statement.RefTable = session.Engine.autoMap(bean)
+		session.Statement.RefTable = session.Engine.TableInfo(bean)
 	}
 
 	if session.Statement.RawSQL == "" {
@@ -1813,15 +1816,16 @@ func (session *Session) queryPreprocess(sqlStr *string, paramStr ...interface{})
 }
 
 func (session *Session) query(sqlStr string, paramStr ...interface{}) (resultsSlice []map[string][]byte, err error) {
+
 	session.queryPreprocess(&sqlStr, paramStr...)
 
 	if session.IsAutoCommit {
-		return query(session.Db, sqlStr, paramStr...)
+		return session.innerQuery(session.Db, sqlStr, paramStr...)
 	}
-	return txQuery(session.Tx, sqlStr, paramStr...)
+	return session.txQuery(session.Tx, sqlStr, paramStr...)
 }
 
-func txQuery(tx *core.Tx, sqlStr string, params ...interface{}) (resultsSlice []map[string][]byte, err error) {
+func (session *Session) txQuery(tx *core.Tx, sqlStr string, params ...interface{}) (resultsSlice []map[string][]byte, err error) {
 	rows, err := tx.Query(sqlStr, params...)
 	if err != nil {
 		return nil, err
@@ -1831,17 +1835,26 @@ func txQuery(tx *core.Tx, sqlStr string, params ...interface{}) (resultsSlice []
 	return rows2maps(rows)
 }
 
-func query(db *core.DB, sqlStr string, params ...interface{}) (resultsSlice []map[string][]byte, err error) {
-	s, err := db.Prepare(sqlStr)
+func (session *Session) innerQuery(db *core.DB, sqlStr string, params ...interface{}) (resultsSlice []map[string][]byte, err error) {
+
+	stmt, rows, err := session.Engine.LogSQLQueryTime(sqlStr, params, func() (*core.Stmt, *core.Rows, error) {
+		stmt, err := db.Prepare(sqlStr)
+		if err != nil {
+			return stmt, nil, err
+		}
+		rows, err := stmt.Query(params...)
+
+		return stmt, rows, err
+	})
+	if rows != nil {
+		defer rows.Close()
+	}
+	if stmt != nil {
+		defer stmt.Close()
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer s.Close()
-	rows, err := s.Query(params...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	return rows2maps(rows)
 }
 
@@ -2063,6 +2076,7 @@ func (session *Session) innerInsertMulti(rowsSlicePtr interface{}) (int64, error
 		strings.Join(colMultiPlaces, "),("))
 
 	res, err := session.exec(statement, args...)
+
 	if err != nil {
 		return 0, err
 	}
@@ -2719,7 +2733,7 @@ func (session *Session) value2Interface(col *core.Column, fieldValue reflect.Val
 }
 
 func (session *Session) innerInsert(bean interface{}) (int64, error) {
-	table := session.Engine.autoMap(bean)
+	table := session.Engine.TableInfo(bean)
 	session.Statement.RefTable = table
 
 	// handle BeforeInsertProcessor
@@ -3116,7 +3130,7 @@ func (session *Session) Update(bean interface{}, condiBean ...interface{}) (int6
 	// --
 
 	if t.Kind() == reflect.Struct {
-		table = session.Engine.autoMap(bean)
+		table = session.Engine.TableInfo(bean)
 		session.Statement.RefTable = table
 
 		if session.Statement.ColumnStr == "" {
@@ -3370,7 +3384,7 @@ func (session *Session) Delete(bean interface{}) (int64, error) {
 	}
 	// --
 
-	table := session.Engine.autoMap(bean)
+	table := session.Engine.TableInfo(bean)
 	session.Statement.RefTable = table
 	colNames, args := buildConditions(session.Engine, table, bean, true, true,
 		false, true, session.Statement.allUseBool, session.Statement.useAllCols,
