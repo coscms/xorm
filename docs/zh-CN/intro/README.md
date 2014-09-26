@@ -1,10 +1,16 @@
+---
+root: true
+name: 简介
+sort: 0
+---
+
 # xorm
 
 [English](https://github.com/coscms/xorm/blob/master/README.md)
 
 xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作非常简便。
 
-[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm)
+[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/tests/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm)
 
 ## 特性
 
@@ -82,7 +88,7 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 	* 查询函数 Get()/Find()/Iterate() 在性能上的改进
 
 
-[更多更新日志...](http://xorm.io/docs/intro/change_log.md)
+[更多更新日志...](https://github.com/coscms/xorm/blob/master/docs/ChangelogCN.md)
 
 ## 安装
 
@@ -96,7 +102,7 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 ## 文档
 
-* [快速开始](http://xorm.io/docs/intro/quick_start.md)
+* [快速开始](https://github.com/coscms/xorm/blob/master/docs/QuickStartCN.md)
 
 * [GoWalker代码文档](http://gowalker.org/github.com/coscms/xorm)
 
@@ -134,3 +140,4 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 BSD License
 [http://creativecommons.org/licenses/BSD/](http://creativecommons.org/licenses/BSD/)
+

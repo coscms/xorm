@@ -1,8 +1,14 @@
+---
+root: true
+name: Introduction
+sort: 0
+---
+
 [中文](https://github.com/coscms/xorm/blob/master/README_CN.md)
 
 Xorm is a simple and powerful ORM for Go.
 
-[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/tests/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
 # Features
 
@@ -82,7 +88,7 @@ Drivers for Go's sql package which currently support database/sql includes:
 	* Allowed int/int32/int64/uint/uint32/uint64/string as Primary Key type
 	* Performance improvement for Get()/Find()/Iterate()
 
-[More changelogs ...](http://xorm.io/docs/intro/change_log.md)
+[More changelogs ...](https://github.com/coscms/xorm/blob/master/docs/Changelog.md)
 
 # Installation
 
@@ -100,7 +106,7 @@ Or
 
 * [GoWalker](http://gowalker.org/github.com/coscms/xorm)
 
-* [Quick Start](http://xorm.io/docs/intro/quick_start.md)
+* [Quick Start](https://github.com/coscms/xorm/blob/master/docs/QuickStart.md)
 
 # Cases
 
