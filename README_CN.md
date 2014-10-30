@@ -4,7 +4,7 @@
 
 xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作非常简便。
 
-[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm)
+[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/tests/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm)
 
 ## 特性
 
@@ -54,33 +54,6 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 	* Prepared statement 缓存
 	* 添加 Incr API
 	* 指定时区位置
-	
-* **v0.3.2** 
-	新特性:
-	* Add AllCols & MustCols function
-	* Add TableName for custom table name
-
-	Bug 修复:
-	* #46
-	* #51
-	* #53
-	* #89
-	* #86
-	* #92
-	
-* **v0.3.1**
-
-	新特性:
-	* 支持 MSSQL DB 通过 ODBC 驱动 ([github.com/lunny/godbc](https://github.com/lunny/godbc));
-	* 通过多个pk标记支持联合主键; 
-	* 新增 Rows() API 用来遍历查询结果，该函数提供了类似sql.Rows的相似用法，可作为 Iterate() API 的可选替代；
-	* ORM 结构体现在允许内建类型的指针作为成员，使得数据库为null成为可能；
-	* Before 和 After 支持
-
-	改进:
-	* 允许 int/int32/int64/uint/uint32/uint64/string 作为主键类型
-	* 查询函数 Get()/Find()/Iterate() 在性能上的改进
-
 
 [更多更新日志...](http://xorm.io/docs/intro/change_log.md)
 
@@ -96,7 +69,7 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 ## 文档
 
-* [快速开始](http://xorm.io/docs/intro/quick_start.md)
+* [操作指南](http://xorm.io/docs)
 
 * [GoWalker代码文档](http://gowalker.org/github.com/coscms/xorm)
 
@@ -115,12 +88,13 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 * [Godaily](http://godaily.org) - [github.com/govc/godaily](http://github.com/govc/godaily)
 
-* [Very Hour](http://veryhour.com/)
+* [YouGam](http://www.yougam.com/)
 
 * [GoCMS - github.com/zzboy/GoCMS](https://github.com/zzdboy/GoCMS)
 
 * [GoBBS - gobbs.domolo.com](http://gobbs.domolo.com/)
 
+* [go-blog](http://wangcheng.me) - [github.com/easykoo/go-blog](https://github.com/easykoo/go-blog)
 
 ## 讨论
 

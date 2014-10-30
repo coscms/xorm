@@ -1,2 +1,11 @@
 [deps]
-github.com/coscms/xorm=
+github.com/coscms/xorm = 
+github.com/go-sql-driver/mysql = 
+github.com/coscms/xorm/core = 
+github.com/coscms/xweb/log = 
+github.com/lib/pq = 
+github.com/ziutek/mymysql = 
+
+[res]
+include = templates
+

@@ -2,7 +2,7 @@
 
 Xorm is a simple and powerful ORM for Go.
 
-[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+[![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/tests/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
 # Features
 
@@ -55,32 +55,6 @@ Drivers for Go's sql package which currently support database/sql includes:
 	* Prepared statement cache
 	* Add Incr API
 	* Specify Timezone Location
-	
-* **v0.3.2** 
-	Improvements:
-	* Add AllCols & MustCols function
-	* Add TableName for custom table name
-
-	Bug Fixes:
-	* #46
-	* #51
-	* #53
-	* #89
-	* #86
-	* #92
-
-* **v0.3.1** 
-
-	Features:
-	* Support MSSQL DB via ODBC driver ([github.com/lunny/godbc](https://github.com/lunny/godbc));
-	* Composite Key, using multiple pk xorm tag 
-	* Added Row() API as alternative to Iterate() API for traversing result set, provide similar usages to sql.Rows type
-	* ORM struct allowed declaration of pointer builtin type as members to allow null DB fields 
-	* Before and After Event processors
-
-	Improvements:
-	* Allowed int/int32/int64/uint/uint32/uint64/string as Primary Key type
-	* Performance improvement for Get()/Find()/Iterate()
 
 [More changelogs ...](http://xorm.io/docs/intro/change_log.md)
 
@@ -96,11 +70,11 @@ Or
 
 # Documents
 
+* [Manual](http://xorm.io/docs)
+
 * [GoDoc](http://godoc.org/github.com/coscms/xorm)
 
 * [GoWalker](http://gowalker.org/github.com/coscms/xorm)
-
-* [Quick Start](http://xorm.io/docs/intro/quick_start.md)
 
 # Cases
 
@@ -116,12 +90,13 @@ Or
 
 * [Godaily](http://godaily.org) - [github.com/govc/godaily](http://github.com/govc/godaily)
 
-* [Very Hour](http://veryhour.com/)
+* [YouGam](http://www.yougam.com/)
 
 * [GoCMS - github.com/zzboy/GoCMS](https://github.com/zzdboy/GoCMS)
 
 * [GoBBS - gobbs.domolo.com](http://gobbs.domolo.com/)
 
+* [go-blog](http://wangcheng.me) - [github.com/easykoo/go-blog](https://github.com/easykoo/go-blog)
 
 # Discuss
 
