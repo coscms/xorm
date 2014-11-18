@@ -560,6 +560,13 @@ func (engine *Engine) Table(tableNameOrBean interface{}) *Session {
 	return session.Table(tableNameOrBean)
 }
 
+// set the table alias
+func (engine *Engine) Alias(alias string) *Session {
+	session := engine.NewSession()
+	session.IsAutoClose = true
+	return session.Alias(alias)
+}
+
 // This method will generate "LIMIT start, limit"
 func (engine *Engine) Limit(limit int, start ...int) *Session {
 	session := engine.NewSession()
@@ -595,7 +602,7 @@ func (engine *Engine) OrderBy(order string) *Session {
 }
 
 // The join_operator should be one of INNER, LEFT OUTER, CROSS etc - this will be prepended to JOIN
-func (engine *Engine) Join(join_operator, tablename, condition string) *Session {
+func (engine *Engine) Join(join_operator string, tablename interface{}, condition string) *Session {
 	session := engine.NewSession()
 	session.IsAutoClose = true
 	return session.Join(join_operator, tablename, condition)
@@ -776,6 +783,8 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 						col.Default = "1"
 					case k == "UPDATED":
 						col.IsUpdated = true
+					case k == "DELETED":
+						col.IsDeleted = true
 					case strings.HasPrefix(k, "INDEX(") && strings.HasSuffix(k, ")"):
 						indexName := k[len("INDEX")+1 : len(k)-1]
 						indexNames[indexName] = core.IndexType
@@ -1244,6 +1253,13 @@ func (engine *Engine) Query(sql string, paramStr ...interface{}) (resultsSlice [
 	return session.Query(sql, paramStr...)
 }
 
+// Exec a raw sql and return records as []map[string]string
+func (engine *Engine) Q(sql string, paramStr ...interface{}) (resultsSlice []map[string]string, err error) {
+	session := engine.NewSession()
+	defer session.Close()
+	return session.Q(sql, paramStr...)
+}
+
 // Insert one or more records
 func (engine *Engine) Insert(beans ...interface{}) (int64, error) {
 	session := engine.NewSession()
@@ -1413,4 +1429,11 @@ func (engine *Engine) FormatTime(sqlTypeName string, t time.Time) (v interface{}
 		v = engine.TZTime(t)
 	}
 	return
+}
+
+// Always disable struct tag "deleted"
+func (engine *Engine) Unscoped() *Session {
+	session := engine.NewSession()
+	session.IsAutoClose = true
+	return session.Unscoped()
 }

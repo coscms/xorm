@@ -134,6 +134,12 @@ func (session *Session) Table(tableNameOrBean interface{}) *Session {
 	return session
 }
 
+// set the table alias
+func (session *Session) Alias(alias string) *Session {
+	session.Statement.Alias(alias)
+	return session
+}
+
 // Method In provides a query string like "id in (1, 2, 3)"
 func (session *Session) In(column string, args ...interface{}) *Session {
 	session.Statement.In(column, args...)
@@ -225,12 +231,7 @@ func (session *Session) Desc(colNames ...string) *Session {
 
 // Method Asc provide asc order by query condition, the input parameters are columns.
 func (session *Session) Asc(colNames ...string) *Session {
-	if session.Statement.OrderStr != "" {
-		session.Statement.OrderStr += ", "
-	}
-	newColNames := col2NewCols(colNames...)
-	sqlStr := strings.Join(newColNames, session.Engine.Quote(" ASC, "))
-	session.Statement.OrderStr += session.Engine.Quote(sqlStr) + " ASC"
+	session.Statement.Asc(colNames...)
 	return session
 }
 
@@ -262,7 +263,7 @@ func (session *Session) NoCache() *Session {
 }
 
 //The join_operator should be one of INNER, LEFT OUTER, CROSS etc - this will be prepended to JOIN
-func (session *Session) Join(join_operator, tablename, condition string) *Session {
+func (session *Session) Join(join_operator string, tablename interface{}, condition string) *Session {
 	session.Statement.Join(join_operator, tablename, condition)
 	return session
 }
@@ -1084,7 +1085,7 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 	if len(condiBean) > 0 {
 		colNames, args := buildConditions(session.Engine, table, condiBean[0], true, true,
 			false, true, session.Statement.allUseBool, session.Statement.useAllCols,
-			session.Statement.mustColumnMap)
+			session.Statement.unscoped, session.Statement.mustColumnMap)
 		session.Statement.ConditionStr = strings.Join(colNames, " AND ")
 		session.Statement.BeanArgs = args
 	}
@@ -3177,7 +3178,7 @@ func (session *Session) Update(bean interface{}, condiBean ...interface{}) (int6
 	if len(condiBean) > 0 {
 		condiColNames, condiArgs = buildConditions(session.Engine, session.Statement.RefTable, condiBean[0], true, true,
 			false, true, session.Statement.allUseBool, session.Statement.useAllCols,
-			session.Statement.mustColumnMap)
+			session.Statement.unscoped, session.Statement.mustColumnMap)
 	}
 
 	var condition = ""
@@ -3381,7 +3382,7 @@ func (session *Session) Delete(bean interface{}) (int64, error) {
 	session.Statement.RefTable = table
 	colNames, args := buildConditions(session.Engine, table, bean, true, true,
 		false, true, session.Statement.allUseBool, session.Statement.useAllCols,
-		session.Statement.mustColumnMap)
+		session.Statement.unscoped, session.Statement.mustColumnMap)
 
 	var condition = ""
 	var andStr = session.Engine.dialect.AndStr()
@@ -3407,13 +3408,39 @@ func (session *Session) Delete(bean interface{}) (int64, error) {
 		return 0, ErrNeedDeletedCond
 	}
 
-	sqlStr := fmt.Sprintf("DELETE FROM %v WHERE %v",
-		session.Engine.Quote(session.Statement.TableName()), condition)
+	sqlStr, sqlStrForCache := "", ""
+	argsForCache := make([]interface{}, 0, len(args) * 2)
+	if session.Statement.unscoped || table.DeletedColumn() == nil { // tag "deleted" is disabled
+		sqlStr = fmt.Sprintf("DELETE FROM %v WHERE %v",
+			session.Engine.Quote(session.Statement.TableName()), condition)
+
+		sqlStrForCache = sqlStr
+		copy(argsForCache, args)
+		argsForCache = append(session.Statement.Params, argsForCache...)
+	} else {
+		// !oinume! sqlStrForCache and argsForCache is needed to behave as executing "DELETE FROM ..." for cache.
+		sqlStrForCache = fmt.Sprintf("DELETE FROM %v WHERE %v",
+			session.Engine.Quote(session.Statement.TableName()), condition)
+		copy(argsForCache, args)
+		argsForCache = append(session.Statement.Params, argsForCache...)
+
+		deletedColumn := table.DeletedColumn()
+		sqlStr = fmt.Sprintf("UPDATE %v SET %v = ? WHERE %v",
+			session.Engine.Quote(session.Statement.TableName()),
+			session.Engine.Quote(deletedColumn.Name),
+			condition)
+
+		// !oinume! Insert NowTime to the head of session.Statement.Params
+		session.Statement.Params = append(session.Statement.Params, "")
+		paramsLen := len(session.Statement.Params)
+		copy(session.Statement.Params[1:paramsLen], session.Statement.Params[0:paramsLen-1])
+		session.Statement.Params[0] = session.Engine.NowTime(deletedColumn.SQLType.Name)
+	}
 
 	args = append(session.Statement.Params, args...)
 
 	if cacher := session.Engine.getCacher2(session.Statement.RefTable); cacher != nil && session.Statement.UseCache {
-		session.cacheDelete(sqlStr, args...)
+		session.cacheDelete(sqlStrForCache, argsForCache...)
 	}
 
 	res, err := session.exec(sqlStr, args...)
@@ -3617,6 +3644,12 @@ func (s *Session) Sync2(beans ...interface{}) error {
 	return nil
 }
 
+// Always disable struct tag "deleted"
+func (session *Session) Unscoped() *Session {
+	session.Statement.Unscoped()
+	return session
+}
+
 func genCols(table *core.Table, session *Session, bean interface{}, useCol bool, includeQuote bool) ([]string, []interface{}, error) {
 	colNames := make([]string, 0)
 	args := make([]interface{}, 0)
@@ -3654,6 +3687,10 @@ func genCols(table *core.Table, session *Session, bean interface{}, useCol bool,
 					continue
 				}
 			}
+		}
+
+		if col.IsDeleted {
+			continue
 		}
 
 		if session.Statement.ColumnStr != "" {
