@@ -53,6 +53,8 @@ to get help
 
 example:
 
+`cd $GOPATH/github.com/coscms/xorm/cmd/xorm`
+
 sqlite:
 `xorm reverse sqite3 test.db templates/goxorm`
 

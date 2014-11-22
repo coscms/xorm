@@ -47,6 +47,11 @@ type Engine struct {
 	disableGlobalCache bool
 }
 
+func (engine *Engine) SetLogger(logger core.ILogger) {
+	engine.Logger = logger
+	engine.dialect.SetLogger(logger)
+}
+
 func (engine *Engine) SetDisableGlobalCache(disable bool) {
 	if engine.disableGlobalCache != disable {
 		engine.disableGlobalCache = disable
@@ -188,9 +193,9 @@ func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 	if engine.ShowSQL {
 		engine.overrideLogLevel(core.LOG_INFO)
 		if len(sqlArgs) > 0 {
-			engine.Logger.Info(fmt.Sprintf("[sql] %v [args] %v", sqlStr, sqlArgs))
+			engine.Logger.Infof("[sql] %v [args] %v", sqlStr, sqlArgs)
 		} else {
-			engine.Logger.Info(fmt.Sprintf("[sql] %v", sqlStr))
+			engine.Logger.Infof("[sql] %v", sqlStr)
 		}
 	}
 }
@@ -200,7 +205,7 @@ func (engine *Engine) LogSQLQueryTime(sqlStr string, args interface{}, execution
 		b4ExecTime := time.Now()
 		stmt, res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
-		engine.LogDebugf("sql [%s] - args [%v] - query took: %vns", sqlStr, args, execDuration.Nanoseconds())
+		engine.LogDebugf("[time] %s - args %v - query took: %vns", sqlStr, args, execDuration.Nanoseconds())
 		return stmt, res, err
 	} else {
 		return executionBlock()
@@ -212,7 +217,7 @@ func (engine *Engine) LogSQLExecutionTime(sqlStr string, args interface{}, execu
 		b4ExecTime := time.Now()
 		res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
-		engine.LogDebugf("sql [%s] - args [%v] - execution took: %vns", sqlStr, args, execDuration.Nanoseconds())
+		engine.LogDebugf("[time] %s - args %v - execution took: %vns", sqlStr, args, execDuration.Nanoseconds())
 		return res, err
 	} else {
 		return executionBlock()
