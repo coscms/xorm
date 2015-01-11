@@ -1078,7 +1078,8 @@ func (session *Session) Count(bean interface{}) (int64, error) {
 		args = session.Statement.RawParams
 	}
 
-	resultsSlice, err := session.query(sqlStr, args...)
+	rows, err := session.query(sqlStr, args...)
+	resultsSlice,err := getResultSliceByRows(rows,err)
 	if err != nil {
 		return 0, err
 	}
@@ -1254,11 +1255,11 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 
 		return session.rows2Beans(rawRows, fields, fieldsCount, table, newElemFunc, sliceValueSetFunc)
 	} else {
-		resultsSlice, err := session.query(sqlStr, args...)
+		rows, err := session.query(sqlStr, args...)
+		resultsSlice, err := getResultSliceByRows(rows,err)
 		if err != nil {
 			return err
 		}
-
 		for i, results := range resultsSlice {
 			var newValue reflect.Value
 			if sliceElementType.Kind() == reflect.Ptr {
@@ -1345,7 +1346,8 @@ func (session *Session) isTableExist(tableName string) (bool, error) {
 		defer session.Close()
 	}
 	sqlStr, args := session.Engine.dialect.TableCheckSql(tableName)
-	results, err := session.query(sqlStr, args...)
+	rows, err := session.query(sqlStr, args...)
+	results, err := getResultSliceByRows(rows,err)
 	return len(results) > 0, err
 }
 
@@ -1365,7 +1367,8 @@ func (session *Session) isIndexExist(tableName, idxName string, unique bool) (bo
 		idx = indexName(tableName, idxName)
 	}
 	sqlStr, args := session.Engine.dialect.IndexCheckSql(tableName, idx)
-	results, err := session.query(sqlStr, args...)
+	rows, err := session.query(sqlStr, args...)
+	results, err := getResultSliceByRows(rows,err)
 	return len(results) > 0, err
 }
 
@@ -1456,62 +1459,6 @@ func (session *Session) dropAll() error {
 		}
 	}
 	return nil
-}
-
-func row2mapStr(rows *core.Rows, fields []string) (resultsMap map[string]string, err error) {
-	result := make(map[string]string)
-	scanResultContainers := make([]interface{}, len(fields))
-	for i := 0; i < len(fields); i++ {
-		var scanResultContainer interface{}
-		scanResultContainers[i] = &scanResultContainer
-	}
-	if err := rows.Scan(scanResultContainers...); err != nil {
-		return nil, err
-	}
-
-	for ii, key := range fields {
-		rawValue := reflect.Indirect(reflect.ValueOf(scanResultContainers[ii]))
-		//if row is null then ignore
-		if rawValue.Interface() == nil {
-			//fmt.Println("ignore ...", key, rawValue)
-			continue
-		}
-
-		if data, err := value2String(&rawValue); err == nil {
-			result[key] = data
-		} else {
-			return nil, err // !nashtsai! REVIEW, should return err or just error log?
-		}
-	}
-	return result, nil
-}
-
-func row2map(rows *core.Rows, fields []string) (resultsMap map[string][]byte, err error) {
-	result := make(map[string][]byte)
-	scanResultContainers := make([]interface{}, len(fields))
-	for i := 0; i < len(fields); i++ {
-		var scanResultContainer interface{}
-		scanResultContainers[i] = &scanResultContainer
-	}
-	if err := rows.Scan(scanResultContainers...); err != nil {
-		return nil, err
-	}
-
-	for ii, key := range fields {
-		rawValue := reflect.Indirect(reflect.ValueOf(scanResultContainers[ii]))
-		//if row is null then ignore
-		if rawValue.Interface() == nil {
-			//fmt.Println("ignore ...", key, rawValue)
-			continue
-		}
-
-		if data, err := value2Bytes(&rawValue); err == nil {
-			result[key] = data
-		} else {
-			return nil, err // !nashtsai! REVIEW, should return err or just error log?
-		}
-	}
-	return result, nil
 }
 
 func (session *Session) getField(dataStruct *reflect.Value, key string, table *core.Table, idx int) *reflect.Value {
@@ -1877,7 +1824,7 @@ func (session *Session) queryPreprocess(sqlStr *string, paramStr ...interface{})
 	session.Engine.logSQL(*sqlStr, paramStr...)
 }
 
-func (session *Session) query(sqlStr string, paramStr ...interface{}) (resultsSlice []map[string][]byte, err error) {
+func (session *Session) query(sqlStr string, paramStr ...interface{}) (rows *core.Rows, err error) {
 
 	session.queryPreprocess(&sqlStr, paramStr...)
 
@@ -1887,17 +1834,16 @@ func (session *Session) query(sqlStr string, paramStr ...interface{}) (resultsSl
 	return session.txQuery(session.Tx, sqlStr, paramStr...)
 }
 
-func (session *Session) txQuery(tx *core.Tx, sqlStr string, params ...interface{}) (resultsSlice []map[string][]byte, err error) {
-	rows, err := tx.Query(sqlStr, params...)
+func (session *Session) txQuery(tx *core.Tx, sqlStr string, params ...interface{}) (rows *core.Rows, err error) {
+	rows, err = tx.Query(sqlStr, params...)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	return rows2maps(rows)
+	//defer rows.Close()
+	return
 }
 
-func (session *Session) innerQuery(db *core.DB, sqlStr string, params ...interface{}) (resultsSlice []map[string][]byte, err error) {
+func (session *Session) innerQuery(db *core.DB, sqlStr string, params ...interface{}) (rows *core.Rows, err error) {
 
 	stmt, rows, err := session.Engine.LogSQLQueryTime(sqlStr, params, func() (*core.Stmt, *core.Rows, error) {
 		stmt, err := db.Prepare(sqlStr)
@@ -1908,16 +1854,18 @@ func (session *Session) innerQuery(db *core.DB, sqlStr string, params ...interfa
 
 		return stmt, rows, err
 	})
+	/*
 	if rows != nil {
 		defer rows.Close()
 	}
+	*/
 	if stmt != nil {
 		defer stmt.Close()
 	}
 	if err != nil {
 		return nil, err
 	}
-	return rows2maps(rows)
+	return
 }
 
 // Exec a raw sql and return records as []map[string][]byte
@@ -1930,48 +1878,16 @@ func (session *Session) Query(sqlStr string, paramStr ...interface{}) (resultsSl
 	if session.IsAutoClose {
 		defer session.Close()
 	}
-
-	return session.query(sqlStr, paramStr...)
+	rows,err:=session.query(sqlStr, paramStr...)
+	resultsSlice,err = getResultSliceByRows(rows,err)
+	return
 }
 
 // =============================
 // for string
 // =============================
-func (session *Session) query2(sqlStr string, paramStr ...interface{}) (resultsSlice []map[string]string, err error) {
-	session.queryPreprocess(&sqlStr, paramStr...)
-
-	if session.IsAutoCommit {
-		return query2(session.Db, sqlStr, paramStr...)
-	}
-	return txQuery2(session.Tx, sqlStr, paramStr...)
-}
-
-func txQuery2(tx *core.Tx, sqlStr string, params ...interface{}) (resultsSlice []map[string]string, err error) {
-	rows, err := tx.Query(sqlStr, params...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	return rows2Strings(rows)
-}
-
-func query2(db *core.DB, sqlStr string, params ...interface{}) (resultsSlice []map[string]string, err error) {
-	s, err := db.Prepare(sqlStr)
-	if err != nil {
-		return nil, err
-	}
-	defer s.Close()
-	rows, err := s.Query(params...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return rows2Strings(rows)
-}
-
-// Exec a raw sql and return records as []map[string]string
-func (session *Session) Q(sqlStr string, paramStr ...interface{}) (resultsSlice []map[string]string, err error) {
+// Exec a raw sql and return records as []*ResultSet
+func (session *Session) Q(sqlStr string, paramStr ...interface{}) (resultsSlice []*ResultSet, err error) {
 	err = session.newDb()
 	if err != nil {
 		return nil, err
@@ -1980,7 +1896,15 @@ func (session *Session) Q(sqlStr string, paramStr ...interface{}) (resultsSlice 
 	if session.IsAutoClose {
 		defer session.Close()
 	}
-	return session.query2(sqlStr, paramStr...)
+	resultsSlice = make([]*ResultSet,0)
+	rows,err:=session.query(sqlStr, paramStr...)
+	if rows!=nil && err==nil {
+		resultsSlice,err=rows2Strings(rows)
+	}
+	if rows!=nil{
+		defer rows.Close()
+	}
+	return
 }
 
 // insert one or more beans
@@ -2907,8 +2831,8 @@ func (session *Session) innerInsert(bean interface{}) (int64, error) {
 	} else {
 		//assert table.AutoIncrement != ""
 		sqlStr = sqlStr + " RETURNING " + session.Engine.Quote(table.AutoIncrement)
-		res, err := session.query(sqlStr, args...)
-
+		rows, err := session.query(sqlStr, args...)
+		res, err := getResultSliceByRows(rows, err)
 		if err != nil {
 			return 0, err
 		} else {
@@ -3387,7 +3311,8 @@ func (session *Session) cacheDelete(sqlStr string, args ...interface{}) error {
 	tableName := session.Statement.TableName()
 	ids, err := core.GetCacheSql(cacher, tableName, newsql, args)
 	if err != nil {
-		resultsSlice, err := session.query(newsql, args...)
+		rows, err := session.query(newsql, args...)
+		resultsSlice, err := getResultSliceByRows(rows, err)
 		if err != nil {
 			return err
 		}

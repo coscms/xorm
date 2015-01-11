@@ -1258,8 +1258,8 @@ func (engine *Engine) Query(sql string, paramStr ...interface{}) (resultsSlice [
 	return session.Query(sql, paramStr...)
 }
 
-// Exec a raw sql and return records as []map[string]string
-func (engine *Engine) Q(sql string, paramStr ...interface{}) (resultsSlice []map[string]string, err error) {
+// Exec a raw sql and return records as []*ResultSet
+func (engine *Engine) Q(sql string, paramStr ...interface{}) (resultsSlice []*ResultSet, err error) {
 	session := engine.NewSession()
 	defer session.Close()
 	return session.Q(sql, paramStr...)
