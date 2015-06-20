@@ -51,8 +51,13 @@ func (r *ResultSet) Set(index int, value string) bool {
 func (r *ResultSet) SetByName(name string, value string) bool {
 	if index,ok:=r.NameIndex[name];ok {
 		return r.Set(index, value)
+	}else{
+		r.NameIndex[name] = len(r.Values)
+		r.Fields = append(r.Fields, name)
+		r.Values = append(r.Values, value)
+		r.Length = len(r.Values)
 	}
-	return false
+	return true
 }
 
 
