@@ -6,24 +6,23 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
-
 // =====================================
 // 定义ResultSet
 // =====================================
 func NewResultSet() *ResultSet {
 	return &ResultSet{
-		Fields:		make([]string,0),
-		Values:		make([]string,0),
-		NameIndex:	make(map[string]int),
-		Length:		0,
+		Fields:    make([]string, 0),
+		Values:    make([]string, 0),
+		NameIndex: make(map[string]int),
+		Length:    0,
 	}
 }
 
-type ResultSet struct{
-	Fields		[]string
-	Values		[]string
-	NameIndex	map[string]int
-	Length		int
+type ResultSet struct {
+	Fields    []string
+	Values    []string
+	NameIndex map[string]int
+	Length    int
 }
 
 func (r *ResultSet) Get(index int) string {
@@ -34,7 +33,7 @@ func (r *ResultSet) Get(index int) string {
 }
 
 func (r *ResultSet) GetByName(name string) string {
-	if index,ok:=r.NameIndex[name];ok {
+	if index, ok := r.NameIndex[name]; ok {
 		return r.Get(index)
 	}
 	return ""
@@ -44,14 +43,14 @@ func (r *ResultSet) Set(index int, value string) bool {
 	if index >= r.Length {
 		return false
 	}
-	r.Values[index]=value
+	r.Values[index] = value
 	return true
 }
 
 func (r *ResultSet) SetByName(name string, value string) bool {
-	if index,ok:=r.NameIndex[name];ok {
+	if index, ok := r.NameIndex[name]; ok {
 		return r.Set(index, value)
-	}else{
+	} else {
 		r.NameIndex[name] = len(r.Values)
 		r.Fields = append(r.Fields, name)
 		r.Values = append(r.Values, value)
@@ -59,8 +58,6 @@ func (r *ResultSet) SetByName(name string, value string) bool {
 	}
 	return true
 }
-
-
 
 // =====================================
 // 增加Session结构体中的方法
@@ -101,8 +98,13 @@ func (session *Session) innerQueryRows(db *core.DB, sqlStr string, params ...int
 	return
 }
 
-
-// Exec a raw sql and return records as []*ResultSet
+/**
+ * Exec a raw sql and return records as []*ResultSet
+ * @param  string					SQL
+ * @param  ...interface{}			params
+ * @return []*ResultSet,error
+ * @author AdamShen (swh@admpub.com)
+ */
 func (session *Session) Q(sqlStr string, paramStr ...interface{}) (resultsSlice []*ResultSet, err error) {
 
 	defer session.resetStatement()
@@ -110,18 +112,50 @@ func (session *Session) Q(sqlStr string, paramStr ...interface{}) (resultsSlice 
 		defer session.Close()
 	}
 
-	resultsSlice = make([]*ResultSet,0)
-	rows,err:=session.queryRows(sqlStr, paramStr...)
-	if rows!=nil && err==nil {
-		resultsSlice,err=rows2ResultSetSlice(rows)
+	resultsSlice = make([]*ResultSet, 0)
+	rows, err := session.queryRows(sqlStr, paramStr...)
+	if rows != nil && err == nil {
+		resultsSlice, err = rows2ResultSetSlice(rows)
 	}
-	if rows!=nil{
+	if rows != nil {
 		defer rows.Close()
 	}
 	return
 }
 
+/**
+ * 逐行执行回调函数
+ * @param  func(*core.Rows) callback		callback func
+ * @param  string sqlStr 					SQL
+ * @param  ...interface{} paramStr			params
+ * @return error
+ * @author AdamShen (swh@admpub.com)
+ * @example
+ * QCallback(func(rows *core.Rows){
+ * 	if err := rows.Scan(bean); err != nil {
+ *		return
+ *	}
+ *	//.....
+ * },"SELECT * FROM shop WHERE type=?","vip")
+ */
+func (session *Session) QCallback(callback func(*core.Rows), sqlStr string, paramStr ...interface{}) (err error) {
 
+	defer session.resetStatement()
+	if session.IsAutoClose {
+		defer session.Close()
+	}
+
+	rows, err := session.queryRows(sqlStr, paramStr...)
+	if rows != nil && err == nil {
+		for rows.Next() {
+			callback(rows)
+		}
+	}
+	if rows != nil {
+		defer rows.Close()
+	}
+	return
+}
 
 // =====================================
 // 函数
@@ -145,7 +179,7 @@ func rows2ResultSetSlice(rows *core.Rows) (resultsSlice []*ResultSet, err error)
 func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err error) {
 	//result := make(map[string]string)
 	result = NewResultSet()
-	getRowByRows(rows, fields, func(data string,index int,fieldName string){
+	getRowByRows(rows, fields, func(data string, index int, fieldName string) {
 		//result[fieldName] = data
 		result.NameIndex[fieldName] = len(result.Fields)
 		result.Fields = append(result.Fields, fieldName)
@@ -156,7 +190,7 @@ func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err err
 }
 
 //获取一行中每一列数据
-func getRowByRows(rows *core.Rows, fields []string, fn func(data string,index int,fieldName string)) (err error) {
+func getRowByRows(rows *core.Rows, fields []string, fn func(data string, index int, fieldName string)) (err error) {
 	length := len(fields)
 	scanResultContainers := make([]interface{}, length)
 	for i := 0; i < length; i++ {
@@ -173,7 +207,7 @@ func getRowByRows(rows *core.Rows, fields []string, fn func(data string,index in
 			continue
 		}
 		if data, err := value2String(&rawValue); err == nil {
-			fn(data,ii,key)
+			fn(data, ii, key)
 		} else {
 			return err
 		}
@@ -182,12 +216,12 @@ func getRowByRows(rows *core.Rows, fields []string, fn func(data string,index in
 }
 
 //根据core.Rows来查询结果
-func getResultSliceByRows(rows *core.Rows,erre error)(resultsSlice []map[string][]byte,err error){
-	resultsSlice=make([]map[string][]byte,0)
-	if rows!=nil && erre==nil {
-		resultsSlice,err = rows2maps(rows)
+func getResultSliceByRows(rows *core.Rows, erre error) (resultsSlice []map[string][]byte, err error) {
+	resultsSlice = make([]map[string][]byte, 0)
+	if rows != nil && erre == nil {
+		resultsSlice, err = rows2maps(rows)
 	}
-	if rows!=nil {
+	if rows != nil {
 		defer rows.Close()
 	}
 	return
