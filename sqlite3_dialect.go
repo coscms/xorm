@@ -1,3 +1,7 @@
+// Copyright 2015 The Xorm Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package xorm
 
 import (
@@ -156,7 +160,7 @@ func (db *sqlite3) SqlType(c *core.Column) string {
 		return core.DateTime
 	case core.TimeStampz:
 		return core.Text
-	case core.Char, core.Varchar, core.NVarchar, core.TinyText, 
+	case core.Char, core.Varchar, core.NVarchar, core.TinyText,
 		core.Text, core.MediumText, core.LongText, core.Json:
 		return core.Text
 	case core.Bit, core.TinyInt, core.SmallInt, core.MediumInt, core.Int, core.Integer, core.BigInt, core.Bool:
@@ -245,9 +249,9 @@ func (db *sqlite3) DropIndexSql(tableName string, index *core.Index) string {
 	return sql, args
 }*/
 
-func (db *sqlite3) IsColumnExist(tableName string, col *core.Column) (bool, error) {
+func (db *sqlite3) IsColumnExist(tableName, colName string) (bool, error) {
 	args := []interface{}{tableName}
-	query := "SELECT name FROM sqlite_master WHERE type='table' and name = ? and ((sql like '%`" + col.Name + "`%') or (sql like '%[" + col.Name + "]%'))"
+	query := "SELECT name FROM sqlite_master WHERE type='table' and name = ? and ((sql like '%`" + colName + "`%') or (sql like '%[" + colName + "]%'))"
 	rows, err := db.DB().Query(query, args...)
 	if db.Logger != nil {
 		db.Logger.Info("[sql]", query, args)
