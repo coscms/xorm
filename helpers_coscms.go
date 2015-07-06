@@ -179,7 +179,7 @@ func rows2ResultSetSlice(rows *core.Rows) (resultsSlice []*ResultSet, err error)
 func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err error) {
 	//result := make(map[string]string)
 	result = NewResultSet()
-	getRowByRows(rows, fields, func(data string, index int, fieldName string) {
+	LineProcessing(rows, fields, func(data string, index int, fieldName string) {
 		//result[fieldName] = data
 		result.NameIndex[fieldName] = len(result.Fields)
 		result.Fields = append(result.Fields, fieldName)
@@ -190,7 +190,7 @@ func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err err
 }
 
 //获取一行中每一列数据
-func getRowByRows(rows *core.Rows, fields []string, fn func(data string, index int, fieldName string)) (err error) {
+func LineProcessing(rows *core.Rows, fields []string, fn func(data string, index int, fieldName string)) (err error) {
 	length := len(fields)
 	scanResultContainers := make([]interface{}, length)
 	for i := 0; i < length; i++ {
