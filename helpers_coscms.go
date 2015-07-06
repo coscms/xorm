@@ -138,7 +138,7 @@ func (session *Session) Q(sqlStr string, paramStr ...interface{}) (resultsSlice 
  *	//.....
  * },"SELECT * FROM shop WHERE type=?","vip")
  */
-func (session *Session) QCallback(callback func(*core.Rows), sqlStr string, paramStr ...interface{}) (err error) {
+func (session *Session) QCallback(callback func(*core.Rows,[]string), sqlStr string, paramStr ...interface{}) (err error) {
 
 	defer session.resetStatement()
 	if session.IsAutoClose {
@@ -147,8 +147,13 @@ func (session *Session) QCallback(callback func(*core.Rows), sqlStr string, para
 
 	rows, err := session.queryRows(sqlStr, paramStr...)
 	if rows != nil && err == nil {
+		var fields []string
+		fields, err = rows.Columns()
+		if err != nil {
+			return err
+		}
 		for rows.Next() {
-			callback(rows)
+			callback(rows,fields)
 		}
 	}
 	if rows != nil {
@@ -179,7 +184,7 @@ func rows2ResultSetSlice(rows *core.Rows) (resultsSlice []*ResultSet, err error)
 func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err error) {
 	//result := make(map[string]string)
 	result = NewResultSet()
-	LineProcessing(rows, fields, func(data string, index int, fieldName string) {
+	LineAllFieldsProcessing(rows, fields, func(data string, index int, fieldName string) {
 		//result[fieldName] = data
 		result.NameIndex[fieldName] = len(result.Fields)
 		result.Fields = append(result.Fields, fieldName)
@@ -190,7 +195,7 @@ func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err err
 }
 
 //获取一行中每一列数据
-func LineProcessing(rows *core.Rows, fields []string, fn func(data string, index int, fieldName string)) (err error) {
+func LineAllFieldsProcessing(rows *core.Rows, fields []string, fn func(data string, index int, fieldName string)) (err error) {
 	length := len(fields)
 	scanResultContainers := make([]interface{}, length)
 	for i := 0; i < length; i++ {
