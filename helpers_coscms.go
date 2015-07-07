@@ -90,7 +90,7 @@ func (session *Session) innerQueryRows(db *core.DB, sqlStr string, params ...int
 		return stmt, rows, err
 	})
 	if stmt != nil {
-		defer stmt.Close()
+		stmt.Close()
 	}
 	if err != nil {
 		return nil, err
@@ -114,11 +114,11 @@ func (session *Session) Q(sqlStr string, paramStr ...interface{}) (resultsSlice 
 
 	resultsSlice = make([]*ResultSet, 0)
 	rows, err := session.queryRows(sqlStr, paramStr...)
-	if rows != nil && err == nil {
-		resultsSlice, err = rows2ResultSetSlice(rows)
-	}
 	if rows != nil {
-		defer rows.Close()
+		if err == nil {
+			resultsSlice, err = rows2ResultSetSlice(rows)
+		}
+		rows.Close()
 	}
 	return
 }
@@ -138,7 +138,7 @@ func (session *Session) Q(sqlStr string, paramStr ...interface{}) (resultsSlice 
  *	//.....
  * },"SELECT * FROM shop WHERE type=?","vip")
  */
-func (session *Session) QCallback(callback func(*core.Rows,[]string), sqlStr string, paramStr ...interface{}) (err error) {
+func (session *Session) QCallback(callback func(*core.Rows, []string), sqlStr string, paramStr ...interface{}) (err error) {
 
 	defer session.resetStatement()
 	if session.IsAutoClose {
@@ -146,18 +146,18 @@ func (session *Session) QCallback(callback func(*core.Rows,[]string), sqlStr str
 	}
 
 	rows, err := session.queryRows(sqlStr, paramStr...)
-	if rows != nil && err == nil {
-		var fields []string
-		fields, err = rows.Columns()
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			callback(rows,fields)
-		}
-	}
 	if rows != nil {
-		defer rows.Close()
+		if err == nil {
+			var fields []string
+			fields, err = rows.Columns()
+			if err != nil {
+				return err
+			}
+			for rows.Next() {
+				callback(rows, fields)
+			}
+		}
+		rows.Close()
 	}
 	return
 }
@@ -199,8 +199,8 @@ func LineAllFieldsProcessing(rows *core.Rows, fields []string, fn func(data stri
 	length := len(fields)
 	scanResultContainers := make([]interface{}, length)
 	for i := 0; i < length; i++ {
-		var scanResultContainer interface{}
-		scanResultContainers[i] = &scanResultContainer
+		var resultContainer interface{}
+		scanResultContainers[i] = &resultContainer
 	}
 	if err := rows.Scan(scanResultContainers...); err != nil {
 		return err
@@ -223,11 +223,11 @@ func LineAllFieldsProcessing(rows *core.Rows, fields []string, fn func(data stri
 //根据core.Rows来查询结果
 func getResultSliceByRows(rows *core.Rows, erre error) (resultsSlice []map[string][]byte, err error) {
 	resultsSlice = make([]map[string][]byte, 0)
-	if rows != nil && erre == nil {
-		resultsSlice, err = rows2maps(rows)
-	}
 	if rows != nil {
-		defer rows.Close()
+		if erre == nil {
+			resultsSlice, err = rows2maps(rows)
+		}
+		rows.Close()
 	}
 	return
 }
