@@ -1,19 +1,11 @@
 package main
 
 import (
-	"text/template"
-
 	"github.com/coscms/xorm/core"
 )
 
 func init() {
-	GoLangTmpl.Funcs = template.FuncMap{"Mapper": mapper.Table2Obj,
-		"Type":    typestring,
-		"Tag":     tagForCoscms,
-		"UnTitle": unTitle,
-		"gt":      gt,
-		"getCol":  getCol,
-	}
+	GoLangTmpl.Funcs["Tag"] = tagForCoscms
 	langTmpls["go"] = GoLangTmpl
 }
 
