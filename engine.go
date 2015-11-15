@@ -115,7 +115,7 @@ func (engine *Engine) SetTableMapper(mapper core.IMapper) {
 	if prefixMapper, ok := mapper.(core.PrefixMapper); ok {
 		engine.TablePrefix = prefixMapper.Prefix
 	} else if suffixMapper, ok := mapper.(core.SuffixMapper); ok {
-		engine.TablePrefix = suffixMapper.Suffix
+		engine.TableSuffix = suffixMapper.Suffix
 	}
 	engine.TableMapper = mapper
 }
