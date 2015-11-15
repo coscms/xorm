@@ -22,6 +22,34 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
+var DefaultShowLog = map[string]bool{
+	"sql":   true,
+	"etime": true,
+	"cache": true,
+	"event": true,
+	"base":  true,
+	"other": true,
+}
+
+var defaultLogProcessor = func(tag string, format string, args []interface{}) (string, []interface{}) {
+	if format == "" {
+		if len(args) > 0 {
+			args[0] = fmt.Sprintf("[%s] %v", tag, args[0])
+		}
+		return format, args
+	}
+	format = "[" + tag + "] " + format
+	return format, args
+}
+var LogTagProcessor = map[string]func(tag string, format string, args []interface{}) (string, []interface{}){
+	"cache": defaultLogProcessor,
+	"event": defaultLogProcessor,
+	"sql":   defaultLogProcessor,
+	"etime": defaultLogProcessor,
+	"base":  defaultLogProcessor,
+	"other": defaultLogProcessor,
+}
+
 // Engine is the major struct of xorm, it means a database manager.
 // Commonly, an application only need one engine
 type Engine struct {
@@ -49,6 +77,14 @@ type Engine struct {
 	TZLocation *time.Location
 
 	disableGlobalCache bool
+
+	showLog     map[string]bool
+	TablePrefix string
+	TableSuffix string
+}
+
+func (engine *Engine) Init() {
+	engine.showLog = DefaultShowLog
 }
 
 func (engine *Engine) SetLogger(logger core.ILogger) {
@@ -76,6 +112,11 @@ func (engine *Engine) SetMapper(mapper core.IMapper) {
 }
 
 func (engine *Engine) SetTableMapper(mapper core.IMapper) {
+	if prefixMapper, ok := mapper.(core.PrefixMapper); ok {
+		engine.TablePrefix = prefixMapper.Prefix
+	} else if suffixMapper, ok := mapper.(core.SuffixMapper); ok {
+		engine.TablePrefix = suffixMapper.Suffix
+	}
 	engine.TableMapper = mapper
 }
 
@@ -192,11 +233,176 @@ func (engine *Engine) Ping() error {
 	return session.Ping()
 }
 
+// =====================================\
+// 增加Engine结构体中的方法
+// @author Admpub <swh@admpub.com>
+// =====================================\
+func (engine *Engine) OpenLog(types ...string) {
+	if len(types) < 1 {
+		return
+	}
+	for _, typ := range types {
+		engine.showLog[typ] = true
+		if typ == "sql" {
+			engine.ShowSQL = engine.showLog[typ]
+		}
+	}
+}
+
+func (engine *Engine) CloseLog(types ...string) {
+	if len(types) < 1 {
+		return
+	}
+	for _, typ := range types {
+		engine.showLog[typ] = false
+		if typ == "sql" {
+			engine.ShowSQL = engine.showLog[typ]
+		}
+	}
+}
+
+func (engine *Engine) TagLogError(tag string, contents ...interface{}) {
+	if enable, _ := engine.showLog[tag]; !enable {
+		return
+	}
+	if !engine.ShowErr {
+		return
+	}
+	if fn, ok := LogTagProcessor[tag]; ok {
+		_, contents = fn(tag, "", contents)
+		if contents == nil {
+			return
+		}
+	}
+	engine.LogError(contents...)
+}
+
+func (engine *Engine) TagLogErrorf(tag string, format string, contents ...interface{}) {
+	if enable, _ := engine.showLog[tag]; !enable {
+		return
+	}
+	if !engine.ShowErr {
+		return
+	}
+	if fn, ok := LogTagProcessor[tag]; ok {
+		format, contents = fn(tag, format, contents)
+		if contents == nil {
+			return
+		}
+	}
+	engine.LogErrorf(format, contents...)
+}
+
+// logging info
+func (engine *Engine) TagLogInfo(tag string, contents ...interface{}) {
+	if enable, _ := engine.showLog[tag]; !enable {
+		return
+	}
+	if !engine.ShowInfo {
+		return
+	}
+	if fn, ok := LogTagProcessor[tag]; ok {
+		_, contents = fn(tag, "", contents)
+		if contents == nil {
+			return
+		}
+	}
+	engine.LogInfo(contents...)
+}
+
+func (engine *Engine) TagLogInfof(tag string, format string, contents ...interface{}) {
+	if enable, _ := engine.showLog[tag]; !enable {
+		return
+	}
+	if !engine.ShowInfo {
+		return
+	}
+	if fn, ok := LogTagProcessor[tag]; ok {
+		format, contents = fn(tag, format, contents)
+		if contents == nil {
+			return
+		}
+	}
+	engine.LogInfof(format, contents...)
+}
+
+// logging debug
+func (engine *Engine) TagLogDebug(tag string, contents ...interface{}) {
+	if enable, _ := engine.showLog[tag]; !enable {
+		return
+	}
+	if !engine.ShowDebug {
+		return
+	}
+	if fn, ok := LogTagProcessor[tag]; ok {
+		_, contents = fn(tag, "", contents)
+		if contents == nil {
+			return
+		}
+	}
+	engine.LogDebug(contents...)
+}
+
+func (engine *Engine) TagLogDebugf(tag string, format string, contents ...interface{}) {
+	if enable, _ := engine.showLog[tag]; !enable {
+		return
+	}
+	if !engine.ShowDebug {
+		return
+	}
+	if fn, ok := LogTagProcessor[tag]; ok {
+		format, contents = fn(tag, format, contents)
+		if contents == nil {
+			return
+		}
+	}
+	engine.LogDebugf(format, contents...)
+}
+
+// logging warn
+func (engine *Engine) TagLogWarn(tag string, contents ...interface{}) {
+	if enable, _ := engine.showLog[tag]; !enable {
+		return
+	}
+	if !engine.ShowWarn {
+		return
+	}
+	if fn, ok := LogTagProcessor[tag]; ok {
+		_, contents = fn(tag, "", contents)
+		if contents == nil {
+			return
+		}
+	}
+	engine.LogWarn(contents...)
+}
+
+func (engine *Engine) TagLogWarnf(tag string, format string, contents ...interface{}) {
+	if enable, _ := engine.showLog[tag]; !enable {
+		return
+	}
+	if !engine.ShowWarn {
+		return
+	}
+	if fn, ok := LogTagProcessor[tag]; ok {
+		format, contents = fn(tag, format, contents)
+		if contents == nil {
+			return
+		}
+	}
+	engine.LogWarnf(format, contents...)
+}
+
+// =====================================/
+// 增加Engine结构体中的方法
+// @author Admpub <swh@admpub.com>
+// =====================================/
+
 // logging sql
 func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 	if engine.ShowSQL {
 		engine.overrideLogLevel(core.LOG_INFO)
 		if len(sqlArgs) > 0 {
+			sqlStr = BuildSqlResult(sqlStr, sqlArgs)
 			engine.Logger.Infof("[sql] %v [args] %v", sqlStr, sqlArgs)
 		} else {
 			engine.Logger.Infof("[sql] %v", sqlStr)
@@ -205,11 +411,12 @@ func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 }
 
 func (engine *Engine) LogSQLQueryTime(sqlStr string, args interface{}, executionBlock func() (*core.Stmt, *core.Rows, error)) (*core.Stmt, *core.Rows, error) {
-	if engine.ShowDebug {
+	if engine.ShowDebug && engine.showLog["etime"] {
 		b4ExecTime := time.Now()
 		stmt, res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
-		engine.LogDebugf("[time] %s - args %v - query took: %vns", sqlStr, args, execDuration.Nanoseconds())
+		sqlStr = BuildSqlResult(sqlStr, args)
+		engine.LogDebugf("[time] %s - args %v - query took: %vs", sqlStr, args, execDuration.Seconds())
 		return stmt, res, err
 	} else {
 		return executionBlock()
@@ -217,11 +424,12 @@ func (engine *Engine) LogSQLQueryTime(sqlStr string, args interface{}, execution
 }
 
 func (engine *Engine) LogSQLExecutionTime(sqlStr string, args interface{}, executionBlock func() (sql.Result, error)) (sql.Result, error) {
-	if engine.ShowDebug {
+	if engine.ShowDebug && engine.showLog["etime"] {
 		b4ExecTime := time.Now()
 		res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
-		engine.LogDebugf("[time] %s - args %v - execution took: %vns", sqlStr, args, execDuration.Nanoseconds())
+		sqlStr = BuildSqlResult(sqlStr, args)
+		engine.LogDebugf("[time] %s - args %v - execution took: %vs", sqlStr, args, execDuration.Seconds())
 		return res, err
 	} else {
 		return executionBlock()
@@ -236,7 +444,6 @@ func (engine *Engine) overrideLogLevel(overrideLevel core.LogLevel) {
 	} else if logLevel < overrideLevel { // TODO can remove if deprecated engine.ShowErr
 		engine.Logger.SetLevel(core.LOG_ERR) // try override logger's log level
 	}
-
 }
 
 func (engine *Engine) LogError(contents ...interface{}) {
@@ -262,7 +469,7 @@ func (engine *Engine) LogInfo(contents ...interface{}) {
 }
 
 func (engine *Engine) LogInfof(format string, contents ...interface{}) {
-	if engine.ShowErr {
+	if engine.ShowInfo {
 		engine.overrideLogLevel(core.LOG_INFO)
 		engine.Logger.Infof(format, contents...)
 	}
