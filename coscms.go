@@ -423,6 +423,10 @@ func (this *Engine) QuoteValue(s string) string {
 	return "'" + AddSlashes(s) + "'"
 }
 
+func (this *Engine) QuoteKey(s string) string {
+	return this.Quote(s)
+}
+
 /**
  * 查询基于指定字段值为键名的map
  */
