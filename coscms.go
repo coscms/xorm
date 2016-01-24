@@ -469,7 +469,7 @@ func (this *Engine) RawQuerySlice(sql string, paramStr ...interface{}) []map[str
 }
 
 func (this *Engine) RawExec(sql string, retId bool, params ...interface{}) (affected int64) {
-	if result, err := this.Exec(sql, params...); err != nil {
+	if result, err := this.Exec(sql, params...); err == nil {
 		if retId {
 			affected, err = result.LastInsertId()
 		} else {
