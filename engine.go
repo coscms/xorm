@@ -22,34 +22,6 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
-var DefaultShowLog = map[string]bool{
-	"sql":   true,
-	"etime": true,
-	"cache": true,
-	"event": true,
-	"base":  true,
-	"other": true,
-}
-
-var defaultLogProcessor = func(tag string, format string, args []interface{}) (string, []interface{}) {
-	if format == "" {
-		if len(args) > 0 {
-			args[0] = fmt.Sprintf("[%s] %v", tag, args[0])
-		}
-		return format, args
-	}
-	format = "[" + tag + "] " + format
-	return format, args
-}
-var LogTagProcessor = map[string]func(tag string, format string, args []interface{}) (string, []interface{}){
-	"cache": defaultLogProcessor,
-	"event": defaultLogProcessor,
-	"sql":   defaultLogProcessor,
-	"etime": defaultLogProcessor,
-	"base":  defaultLogProcessor,
-	"other": defaultLogProcessor,
-}
-
 // Engine is the major struct of xorm, it means a database manager.
 // Commonly, an application only need one engine
 type Engine struct {
@@ -83,10 +55,6 @@ type Engine struct {
 	TableSuffix string
 }
 
-func (engine *Engine) Init() {
-	engine.showLog = DefaultShowLog
-}
-
 func (engine *Engine) SetLogger(logger core.ILogger) {
 	engine.Logger = logger
 	engine.dialect.SetLogger(logger)
@@ -112,11 +80,6 @@ func (engine *Engine) SetMapper(mapper core.IMapper) {
 }
 
 func (engine *Engine) SetTableMapper(mapper core.IMapper) {
-	if prefixMapper, ok := mapper.(core.PrefixMapper); ok {
-		engine.TablePrefix = prefixMapper.Prefix
-	} else if suffixMapper, ok := mapper.(core.SuffixMapper); ok {
-		engine.TableSuffix = suffixMapper.Suffix
-	}
 	engine.TableMapper = mapper
 }
 
@@ -233,170 +196,6 @@ func (engine *Engine) Ping() error {
 	return session.Ping()
 }
 
-// =====================================\
-// 增加Engine结构体中的方法
-// @author Admpub <swh@admpub.com>
-// =====================================\
-func (engine *Engine) OpenLog(types ...string) {
-	if len(types) < 1 {
-		return
-	}
-	for _, typ := range types {
-		engine.showLog[typ] = true
-		if typ == "sql" {
-			engine.ShowSQL = engine.showLog[typ]
-		}
-	}
-}
-
-func (engine *Engine) CloseLog(types ...string) {
-	if len(types) < 1 {
-		return
-	}
-	for _, typ := range types {
-		engine.showLog[typ] = false
-		if typ == "sql" {
-			engine.ShowSQL = engine.showLog[typ]
-		}
-	}
-}
-
-func (engine *Engine) TagLogError(tag string, contents ...interface{}) {
-	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowErr {
-		return
-	}
-	if fn, ok := LogTagProcessor[tag]; ok {
-		_, contents = fn(tag, "", contents)
-		if contents == nil {
-			return
-		}
-	}
-	engine.LogError(contents...)
-}
-
-func (engine *Engine) TagLogErrorf(tag string, format string, contents ...interface{}) {
-	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowErr {
-		return
-	}
-	if fn, ok := LogTagProcessor[tag]; ok {
-		format, contents = fn(tag, format, contents)
-		if contents == nil {
-			return
-		}
-	}
-	engine.LogErrorf(format, contents...)
-}
-
-// logging info
-func (engine *Engine) TagLogInfo(tag string, contents ...interface{}) {
-	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowInfo {
-		return
-	}
-	if fn, ok := LogTagProcessor[tag]; ok {
-		_, contents = fn(tag, "", contents)
-		if contents == nil {
-			return
-		}
-	}
-	engine.LogInfo(contents...)
-}
-
-func (engine *Engine) TagLogInfof(tag string, format string, contents ...interface{}) {
-	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowInfo {
-		return
-	}
-	if fn, ok := LogTagProcessor[tag]; ok {
-		format, contents = fn(tag, format, contents)
-		if contents == nil {
-			return
-		}
-	}
-	engine.LogInfof(format, contents...)
-}
-
-// logging debug
-func (engine *Engine) TagLogDebug(tag string, contents ...interface{}) {
-	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowDebug {
-		return
-	}
-	if fn, ok := LogTagProcessor[tag]; ok {
-		_, contents = fn(tag, "", contents)
-		if contents == nil {
-			return
-		}
-	}
-	engine.LogDebug(contents...)
-}
-
-func (engine *Engine) TagLogDebugf(tag string, format string, contents ...interface{}) {
-	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowDebug {
-		return
-	}
-	if fn, ok := LogTagProcessor[tag]; ok {
-		format, contents = fn(tag, format, contents)
-		if contents == nil {
-			return
-		}
-	}
-	engine.LogDebugf(format, contents...)
-}
-
-// logging warn
-func (engine *Engine) TagLogWarn(tag string, contents ...interface{}) {
-	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowWarn {
-		return
-	}
-	if fn, ok := LogTagProcessor[tag]; ok {
-		_, contents = fn(tag, "", contents)
-		if contents == nil {
-			return
-		}
-	}
-	engine.LogWarn(contents...)
-}
-
-func (engine *Engine) TagLogWarnf(tag string, format string, contents ...interface{}) {
-	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowWarn {
-		return
-	}
-	if fn, ok := LogTagProcessor[tag]; ok {
-		format, contents = fn(tag, format, contents)
-		if contents == nil {
-			return
-		}
-	}
-	engine.LogWarnf(format, contents...)
-}
-
-// =====================================/
-// 增加Engine结构体中的方法
-// @author Admpub <swh@admpub.com>
-// =====================================/
-
 // logging sql
 func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 	if engine.ShowSQL {
@@ -444,6 +243,7 @@ func (engine *Engine) overrideLogLevel(overrideLevel core.LogLevel) {
 	} else if logLevel < overrideLevel { // TODO can remove if deprecated engine.ShowErr
 		engine.Logger.SetLevel(core.LOG_ERR) // try override logger's log level
 	}
+
 }
 
 func (engine *Engine) LogError(contents ...interface{}) {
@@ -527,6 +327,12 @@ func (engine *Engine) NoAutoTime() *Session {
 	return session.NoAutoTime()
 }
 
+func (engine *Engine) NoAutoCondition(no ...bool) *Session {
+	session := engine.NewSession()
+	session.IsAutoClose = true
+	return session.NoAutoCondition(no...)
+}
+
 // Retrieve all tables, columns, indexes' informations from database.
 func (engine *Engine) DBMetas() ([]*core.Table, error) {
 	tables, err := engine.dialect.GetTables()
@@ -584,13 +390,25 @@ func (engine *Engine) DumpAll(w io.Writer) error {
 		return err
 	}
 
-	for _, table := range tables {
-		_, err = io.WriteString(w, engine.dialect.CreateTableSql(table, "", table.StoreEngine, "")+"\n\n")
+	_, err = io.WriteString(w, fmt.Sprintf("/*Generated by xorm v%s %s*/\n\n",
+		Version, time.Now().In(engine.TZLocation).Format("2006-01-02 15:04:05")))
+	if err != nil {
+		return err
+	}
+
+	for i, table := range tables {
+		if i > 0 {
+			_, err = io.WriteString(w, "\n")
+			if err != nil {
+				return err
+			}
+		}
+		_, err = io.WriteString(w, engine.dialect.CreateTableSql(table, "", table.StoreEngine, "")+";\n")
 		if err != nil {
 			return err
 		}
 		for _, index := range table.Indexes {
-			_, err = io.WriteString(w, engine.dialect.CreateIndexSql(table.Name, index)+"\n\n")
+			_, err = io.WriteString(w, engine.dialect.CreateIndexSql(table.Name, index)+";\n")
 			if err != nil {
 				return err
 			}
@@ -650,7 +468,7 @@ func (engine *Engine) DumpAll(w io.Writer) error {
 					}
 				}
 			}
-			_, err = io.WriteString(w, temp[2:]+");\n\n")
+			_, err = io.WriteString(w, temp[2:]+");\n")
 			if err != nil {
 				return err
 			}
@@ -915,33 +733,24 @@ func (engine *Engine) newTable() *core.Table {
 	return table
 }
 
+type TableName interface {
+	TableName() string
+}
+
 func (engine *Engine) mapType(v reflect.Value) *core.Table {
 	t := v.Type()
 	table := engine.newTable()
-	method := v.MethodByName("TableName")
-	if !method.IsValid() {
-		if v.CanAddr() {
-			method = v.Addr().MethodByName("TableName")
-		}
-	}
-	if method.IsValid() {
-		params := []reflect.Value{}
-		results := method.Call(params)
-		if len(results) == 1 {
-			table.Name = results[0].Interface().(string)
-		}
-	}
-
-	if table.Name == "" {
+	if tb, ok := v.Interface().(TableName); ok {
+		table.Name = tb.TableName()
+	} else {
 		table.Name = engine.TableMapper.Obj2Table(t.Name())
 	}
+
 	table.Type = t
 
 	var idFieldColName string
 	var err error
-
-	hasCacheTag := false
-	hasNoCacheTag := false
+	var hasCacheTag, hasNoCacheTag bool
 
 	for i := 0; i < t.NumField(); i++ {
 		tag := t.Field(i).Tag
@@ -954,7 +763,7 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 		if ormTagStr != "" {
 			col = &core.Column{FieldName: t.Field(i).Name, Nullable: true, IsPrimaryKey: false,
 				IsAutoIncrement: false, MapType: core.TWOSIDES, Indexes: make(map[string]bool)}
-			tags := strings.Split(ormTagStr, " ")
+			tags := splitTag(ormTagStr)
 
 			if len(tags) > 0 {
 				if tags[0] == "-" {
@@ -1028,6 +837,16 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 					case k == "VERSION":
 						col.IsVersion = true
 						col.Default = "1"
+					case k == "UTC":
+						col.TimeZone = time.UTC
+					case k == "LOCAL":
+						col.TimeZone = time.Local
+					case strings.HasPrefix(k, "LOCALE(") && strings.HasSuffix(k, ")"):
+						location := k[len("INDEX")+1 : len(k)-1]
+						col.TimeZone, err = time.LoadLocation(location)
+						if err != nil {
+							engine.LogError(err)
+						}
 					case k == "UPDATED":
 						col.IsUpdated = true
 					case k == "DELETED":
@@ -1611,7 +1430,6 @@ var (
 )
 
 func (engine *Engine) TZTime(t time.Time) time.Time {
-
 	if NULL_TIME != t { // if time is not initialized it's not suitable for Time.In()
 		return t.In(engine.TZLocation)
 	}
@@ -1629,35 +1447,51 @@ func (engine *Engine) NowTime2(sqlTypeName string) (interface{}, time.Time) {
 }
 
 func (engine *Engine) FormatTime(sqlTypeName string, t time.Time) (v interface{}) {
+	return engine.formatTime(engine.TZLocation, sqlTypeName, t)
+}
+
+func (engine *Engine) formatColTime(col *core.Column, t time.Time) (v interface{}) {
+	if col.DisableTimeZone {
+		return engine.formatTime(nil, col.SQLType.Name, t)
+	} else if col.TimeZone != nil {
+		return engine.formatTime(col.TimeZone, col.SQLType.Name, t)
+	}
+	return engine.formatTime(engine.TZLocation, col.SQLType.Name, t)
+}
+
+func (engine *Engine) formatTime(tz *time.Location, sqlTypeName string, t time.Time) (v interface{}) {
 	if engine.dialect.DBType() == core.ORACLE {
 		return t
 	}
+	if tz != nil {
+		t = engine.TZTime(t)
+	}
 	switch sqlTypeName {
 	case core.Time:
-		s := engine.TZTime(t).Format("2006-01-02 15:04:05") //time.RFC3339
+		s := t.Format("2006-01-02 15:04:05") //time.RFC3339
 		v = s[11:19]
 	case core.Date:
-		v = engine.TZTime(t).Format("2006-01-02")
+		v = t.Format("2006-01-02")
 	case core.DateTime, core.TimeStamp:
 		if engine.dialect.DBType() == "ql" {
-			v = engine.TZTime(t)
+			v = t
 		} else if engine.dialect.DBType() == "sqlite3" {
-			v = engine.TZTime(t).UTC().Format("2006-01-02 15:04:05")
+			v = t.UTC().Format("2006-01-02 15:04:05")
 		} else {
-			v = engine.TZTime(t).Format("2006-01-02 15:04:05")
+			v = t.Format("2006-01-02 15:04:05")
 		}
 	case core.TimeStampz:
 		if engine.dialect.DBType() == core.MSSQL {
-			v = engine.TZTime(t).Format("2006-01-02T15:04:05.9999999Z07:00")
+			v = t.Format("2006-01-02T15:04:05.9999999Z07:00")
 		} else if engine.DriverName() == "mssql" {
-			v = engine.TZTime(t)
+			v = t
 		} else {
-			v = engine.TZTime(t).Format(time.RFC3339Nano)
+			v = t.Format(time.RFC3339Nano)
 		}
 	case core.BigInt, core.Int:
-		v = engine.TZTime(t).Unix()
+		v = t.Unix()
 	default:
-		v = engine.TZTime(t)
+		v = t
 	}
 	return
 }

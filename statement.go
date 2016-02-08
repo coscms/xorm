@@ -39,45 +39,46 @@ type exprParam struct {
 
 // statement save all the sql info for executing SQL
 type Statement struct {
-	RefTable      *core.Table
-	Engine        *Engine
-	Start         int
-	LimitN        int
-	WhereStr      string
-	IdParam       *core.PK
-	Params        []interface{}
-	OrderStr      string
-	JoinStr       string
-	GroupByStr    string
-	HavingStr     string
-	ColumnStr     string
-	selectStr     string
-	columnMap     map[string]bool
-	useAllCols    bool
-	OmitStr       string
-	ConditionStr  string
-	AltTableName  string
-	RawSQL        string
-	RawParams     []interface{}
-	UseCascade    bool
-	UseAutoJoin   bool
-	StoreEngine   string
-	Charset       string
-	BeanArgs      []interface{}
-	UseCache      bool
-	UseAutoTime   bool
-	IsDistinct    bool
-	IsForUpdate   bool
-	TableAlias    string
-	allUseBool    bool
-	checkVersion  bool
-	unscoped      bool
-	mustColumnMap map[string]bool
-	nullableMap   map[string]bool
-	inColumns     map[string]*inParam
-	incrColumns   map[string]incrParam
-	decrColumns   map[string]decrParam
-	exprColumns   map[string]exprParam
+	RefTable        *core.Table
+	Engine          *Engine
+	Start           int
+	LimitN          int
+	WhereStr        string
+	IdParam         *core.PK
+	Params          []interface{}
+	OrderStr        string
+	JoinStr         string
+	GroupByStr      string
+	HavingStr       string
+	ColumnStr       string
+	selectStr       string
+	columnMap       map[string]bool
+	useAllCols      bool
+	OmitStr         string
+	ConditionStr    string
+	AltTableName    string
+	RawSQL          string
+	RawParams       []interface{}
+	UseCascade      bool
+	UseAutoJoin     bool
+	StoreEngine     string
+	Charset         string
+	BeanArgs        []interface{}
+	UseCache        bool
+	UseAutoTime     bool
+	noAutoCondition bool
+	IsDistinct      bool
+	IsForUpdate     bool
+	TableAlias      string
+	allUseBool      bool
+	checkVersion    bool
+	unscoped        bool
+	mustColumnMap   map[string]bool
+	nullableMap     map[string]bool
+	inColumns       map[string]*inParam
+	incrColumns     map[string]incrParam
+	decrColumns     map[string]decrParam
+	exprColumns     map[string]exprParam
 }
 
 // init
@@ -103,6 +104,7 @@ func (statement *Statement) Init() {
 	statement.BeanArgs = make([]interface{}, 0)
 	statement.UseCache = true
 	statement.UseAutoTime = true
+	statement.noAutoCondition = false
 	statement.IsDistinct = false
 	statement.IsForUpdate = false
 	statement.TableAlias = ""
@@ -119,20 +121,29 @@ func (statement *Statement) Init() {
 	statement.exprColumns = make(map[string]exprParam)
 }
 
-// add the raw sql statement
+// NoAutoCondition if you do not want convert bean's field as query condition, then use this function
+func (statement *Statement) NoAutoCondition(no ...bool) *Statement {
+	statement.noAutoCondition = true
+	if len(no) > 0 {
+		statement.noAutoCondition = no[0]
+	}
+	return statement
+}
+
+// Sql add the raw sql statement
 func (statement *Statement) Sql(querystring string, args ...interface{}) *Statement {
 	statement.RawSQL = querystring
 	statement.RawParams = args
 	return statement
 }
 
-// set the table alias
+// Alias set the table alias
 func (statement *Statement) Alias(alias string) *Statement {
 	statement.TableAlias = alias
 	return statement
 }
 
-// add Where statment
+// Where add Where statment
 func (statement *Statement) Where(querystring string, args ...interface{}) *Statement {
 	if !strings.Contains(querystring, statement.Engine.dialect.EqStr()) {
 		querystring = strings.Replace(querystring, "=", statement.Engine.dialect.EqStr(), -1)
@@ -142,7 +153,7 @@ func (statement *Statement) Where(querystring string, args ...interface{}) *Stat
 	return statement
 }
 
-// add Where & and statment
+// And add Where & and statment
 func (statement *Statement) And(querystring string, args ...interface{}) *Statement {
 	if len(statement.WhereStr) > 0 {
 		var buf bytes.Buffer
@@ -156,7 +167,7 @@ func (statement *Statement) And(querystring string, args ...interface{}) *Statem
 	return statement
 }
 
-// add Where & Or statment
+// Or add Where & Or statment
 func (statement *Statement) Or(querystring string, args ...interface{}) *Statement {
 	if len(statement.WhereStr) > 0 {
 		var buf bytes.Buffer
@@ -170,7 +181,7 @@ func (statement *Statement) Or(querystring string, args ...interface{}) *Stateme
 	return statement
 }
 
-// tempororily set table name
+// Table tempororily set table name, the parameter could be a string or a pointer of struct
 func (statement *Statement) Table(tableNameOrBean interface{}) *Statement {
 	v := rValue(tableNameOrBean)
 	t := v.Type()
@@ -182,7 +193,7 @@ func (statement *Statement) Table(tableNameOrBean interface{}) *Statement {
 	return statement
 }
 
-// Auto generating conditions according a struct
+// Auto generating update columnes and values according a struct
 func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 	includeVersion bool, includeUpdated bool, includeNil bool,
 	includeAutoIncr bool, allUseBool bool, useAllCols bool,
@@ -208,10 +219,6 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 			continue
 		}
 		if use, ok := columnMap[col.Name]; ok && !use {
-			continue
-		}
-
-		if engine.dialect.DBType() == core.MSSQL && col.SQLType.Name == core.Text {
 			continue
 		}
 
@@ -338,7 +345,6 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 						if len(table.PrimaryKeys) == 1 {
 							pkField := reflect.Indirect(fieldValue).FieldByName(table.PKColumns()[0].FieldName)
 							// fix non-int pk issues
-							//if pkField.Int() != 0 {
 							if pkField.IsValid() && !isZero(pkField.Interface()) {
 								val = pkField.Interface()
 							} else {
@@ -364,11 +370,13 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 				}
 			}
 		case reflect.Array, reflect.Slice, reflect.Map:
-			if fieldValue == reflect.Zero(fieldType) {
-				continue
-			}
-			if fieldValue.IsNil() || !fieldValue.IsValid() || fieldValue.Len() == 0 {
-				continue
+			if !requiredField {
+				if fieldValue == reflect.Zero(fieldType) {
+					continue
+				}
+				if fieldValue.IsNil() || !fieldValue.IsValid() || fieldValue.Len() == 0 {
+					continue
+				}
 			}
 
 			if col.SQLType.IsText() {
@@ -419,7 +427,7 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 func buildConditions(engine *Engine, table *core.Table, bean interface{},
 	includeVersion bool, includeUpdated bool, includeNil bool,
 	includeAutoIncr bool, allUseBool bool, useAllCols bool, unscoped bool,
-	mustColumnMap map[string]bool, tableName string, addedTableName bool) ([]string, []interface{}) {
+	mustColumnMap map[string]bool, tableName, aliasName string, addedTableName bool) ([]string, []interface{}) {
 	colNames := make([]string, 0)
 	var args = make([]interface{}, 0)
 	for _, col := range table.Columns() {
@@ -442,7 +450,11 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 
 		var colName string
 		if addedTableName {
-			colName = engine.Quote(tableName) + "." + engine.Quote(col.Name)
+			var nm = tableName
+			if len(aliasName) > 0 {
+				nm = aliasName
+			}
+			colName = engine.Quote(nm) + "." + engine.Quote(col.Name)
 		} else {
 			colName = engine.Quote(col.Name)
 		}
@@ -454,7 +466,7 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 		}
 
 		if col.IsDeleted && !unscoped { // tag "deleted" is enabled
-			colNames = append(colNames, fmt.Sprintf("(%v IS NULL or %v = '0001-01-01 00:00:00')",
+			colNames = append(colNames, fmt.Sprintf("%v IS NULL or %v = '0001-01-01 00:00:00'",
 				colName, colName))
 		}
 
@@ -672,7 +684,7 @@ func (statement *Statement) Id(id interface{}) *Statement {
 	return statement
 }
 
-// Generate  "Update ... Set column = column + arg" statment
+// Incr Generate  "Update ... Set column = column + arg" statment
 func (statement *Statement) Incr(column string, arg ...interface{}) *Statement {
 	k := strings.ToLower(column)
 	if len(arg) > 0 {
@@ -683,7 +695,7 @@ func (statement *Statement) Incr(column string, arg ...interface{}) *Statement {
 	return statement
 }
 
-// Generate  "Update ... Set column = column - arg" statment
+// Decr Generate  "Update ... Set column = column - arg" statment
 func (statement *Statement) Decr(column string, arg ...interface{}) *Statement {
 	k := strings.ToLower(column)
 	if len(arg) > 0 {
@@ -694,7 +706,7 @@ func (statement *Statement) Decr(column string, arg ...interface{}) *Statement {
 	return statement
 }
 
-// Generate  "Update ... Set column = {expression}" statment
+// SetExpr Generate  "Update ... Set column = {expression}" statment
 func (statement *Statement) SetExpr(column string, expression string) *Statement {
 	k := strings.ToLower(column)
 	statement.exprColumns[k] = exprParam{column, expression}
@@ -718,9 +730,14 @@ func (statement *Statement) getExpr() map[string]exprParam {
 
 // Generate "Where column IN (?) " statment
 func (statement *Statement) In(column string, args ...interface{}) *Statement {
+	length := len(args)
+	if length == 0 {
+		return statement
+	}
+
 	k := strings.ToLower(column)
 	var newargs []interface{}
-	if len(args) == 1 &&
+	if length == 1 &&
 		reflect.TypeOf(args[0]).Kind() == reflect.Slice {
 		newargs = make([]interface{}, 0)
 		v := reflect.ValueOf(args[0])
@@ -1114,12 +1131,12 @@ func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) 
 
 	var addedTableName = (len(statement.JoinStr) > 0)
 
-	colNames, args := buildConditions(statement.Engine, table, bean, true, true,
-		false, true, statement.allUseBool, statement.useAllCols,
-		statement.unscoped, statement.mustColumnMap, statement.TableName(), addedTableName)
+	if !statement.noAutoCondition {
+		colNames, args := statement.buildConditions(table, bean, true, true, false, true, addedTableName)
 
-	statement.ConditionStr = strings.Join(colNames, " "+statement.Engine.dialect.AndStr()+" ")
-	statement.BeanArgs = args
+		statement.ConditionStr = strings.Join(colNames, " "+statement.Engine.dialect.AndStr()+" ")
+		statement.BeanArgs = args
+	}
 
 	var columnStr string = statement.ColumnStr
 	if len(statement.selectStr) > 0 {
@@ -1169,18 +1186,23 @@ func (s *Statement) genAddUniqueStr(uqeName string, cols []string) (string, []in
 	return sql, []interface{}{}
 }*/
 
+func (statement *Statement) buildConditions(table *core.Table, bean interface{}, includeVersion bool, includeUpdated bool, includeNil bool, includeAutoIncr bool, addedTableName bool) ([]string, []interface{}) {
+	return buildConditions(statement.Engine, table, bean, includeVersion, includeUpdated, includeNil, includeAutoIncr, statement.allUseBool, statement.useAllCols,
+		statement.unscoped, statement.mustColumnMap, statement.TableName(), statement.TableAlias, addedTableName)
+}
+
 func (statement *Statement) genCountSql(bean interface{}) (string, []interface{}) {
 	table := statement.Engine.TableInfo(bean)
 	statement.RefTable = table
 
 	var addedTableName = (len(statement.JoinStr) > 0)
 
-	colNames, args := buildConditions(statement.Engine, table, bean, true, true, false,
-		true, statement.allUseBool, statement.useAllCols,
-		statement.unscoped, statement.mustColumnMap, statement.TableName(), addedTableName)
+	if !statement.noAutoCondition {
+		colNames, args := statement.buildConditions(table, bean, true, true, false, true, addedTableName)
 
-	statement.ConditionStr = strings.Join(colNames, " "+statement.Engine.Dialect().AndStr()+" ")
-	statement.BeanArgs = args
+		statement.ConditionStr = strings.Join(colNames, " "+statement.Engine.Dialect().AndStr()+" ")
+		statement.BeanArgs = args
+	}
 
 	// count(index fieldname) > count(0) > count(*)
 	var id string = "*"
@@ -1197,7 +1219,8 @@ func (statement *Statement) genSelectSql(columnStr string) (a string) {
 		distinct = "DISTINCT "
 	}
 
-	var dialect core.Dialect = statement.Engine.Dialect()
+	var dialect = statement.Engine.Dialect()
+	var quote = statement.Engine.Quote
 	var top string
 	var mssqlCondi string
 
@@ -1218,12 +1241,12 @@ func (statement *Statement) genSelectSql(columnStr string) (a string) {
 	}
 	var whereStr = buf.String()
 
-	var fromStr string = " FROM " + statement.Engine.Quote(statement.TableName())
+	var fromStr string = " FROM " + quote(statement.TableName())
 	if statement.TableAlias != "" {
 		if dialect.DBType() == core.ORACLE {
-			fromStr += " " + statement.Engine.Quote(statement.TableAlias)
+			fromStr += " " + quote(statement.TableAlias)
 		} else {
-			fromStr += " AS " + statement.Engine.Quote(statement.TableAlias)
+			fromStr += " AS " + quote(statement.TableAlias)
 		}
 	}
 	if statement.JoinStr != "" {
