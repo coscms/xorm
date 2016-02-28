@@ -411,9 +411,14 @@ func (this *Engine) ReplaceTablePrefix(sql string) (r string) {
 	r = strings.Replace(sql, "~", this.TablePrefix, -1)
 	return
 }
+
+func (this *Engine) TableName(table string) string {
+	return this.TablePrefix + table + this.TableSuffix
+}
+
 func (this *Engine) fullTableName(table string) string {
 	if table[0] != '`' && table[0] != '~' {
-		table = this.Quote(this.TablePrefix + table + this.TableSuffix)
+		table = this.Quote(this.TableName(table))
 	}
 	table = this.ReplaceTablePrefix(table)
 	return table
