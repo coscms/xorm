@@ -466,7 +466,7 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 		}
 
 		if col.IsDeleted && !unscoped { // tag "deleted" is enabled
-			colNames = append(colNames, fmt.Sprintf("%v IS NULL or %v = '0001-01-01 00:00:00'",
+			colNames = append(colNames, fmt.Sprintf("(%v IS NULL OR %v = '0001-01-01 00:00:00')",
 				colName, colName))
 		}
 
@@ -652,6 +652,10 @@ func (statement *Statement) TableName() string {
 	}
 
 	if statement.RefTable != nil {
+		schema := statement.Engine.dialect.URI().Schema
+		if len(schema) > 0 {
+			return schema + "." + statement.RefTable.Name
+		}
 		return statement.RefTable.Name
 	}
 	return ""
@@ -768,7 +772,7 @@ func (statement *Statement) genInSql() (string, []interface{}) {
 	for _, params := range statement.inColumns {
 		buf.Reset()
 		fmt.Fprintf(&buf, "(%v IN (%v))",
-			statement.Engine.autoQuote(params.colName),
+			statement.Engine.quoteColumn(params.colName),
 			strings.Join(makeArray("?", len(params.args)), ","))
 		inStrs[i] = buf.String()
 		i++
@@ -805,16 +809,6 @@ func col2NewCols(columns ...string) []string {
 	return newColumns
 }
 
-func (engine *Engine) autoQuote(col string) string {
-	col = strings.Replace(col, "`", "", -1)
-	col = strings.Replace(col, engine.QuoteStr(), "", -1)
-	fields := strings.Split(strings.TrimSpace(col), ".")
-	for i, field := range fields {
-		fields[i] = engine.Quote(field)
-	}
-	return strings.Join(fields, ".")
-}
-
 func (statement *Statement) col2NewColsWithQuote(columns ...string) []string {
 	newColumns := make([]string, 0)
 	for _, col := range columns {
@@ -824,10 +818,10 @@ func (statement *Statement) col2NewColsWithQuote(columns ...string) []string {
 		for _, c := range ccols {
 			fields := strings.Split(strings.TrimSpace(c), ".")
 			if len(fields) == 1 {
-				newColumns = append(newColumns, statement.Engine.Quote(fields[0]))
+				newColumns = append(newColumns, statement.Engine.quote(fields[0]))
 			} else if len(fields) == 2 {
-				newColumns = append(newColumns, statement.Engine.Quote(fields[0])+"."+
-					statement.Engine.Quote(fields[1]))
+				newColumns = append(newColumns, statement.Engine.quote(fields[0])+"."+
+					statement.Engine.quote(fields[1]))
 			} else {
 				panic(errors.New("unwanted colnames"))
 			}
@@ -857,15 +851,15 @@ func (s *Statement) Select(str string) *Statement {
 
 // Generate "col1, col2" statement
 func (statement *Statement) Cols(columns ...string) *Statement {
-	newColumns := col2NewCols(columns...)
-	for _, nc := range newColumns {
+	cols := col2NewCols(columns...)
+	for _, nc := range cols {
 		statement.columnMap[strings.ToLower(nc)] = true
 	}
-	statement.ColumnStr = statement.Engine.Quote(strings.Join(newColumns, statement.Engine.Quote(", ")))
-	if strings.Contains(statement.ColumnStr, ".") {
-		statement.ColumnStr = strings.Replace(statement.ColumnStr, ".", statement.Engine.Quote("."), -1)
-	}
-	statement.ColumnStr = strings.Replace(statement.ColumnStr, statement.Engine.Quote("*"), "*", -1)
+
+	newColumns := statement.col2NewColsWithQuote(columns...)
+	//fmt.Println("=====", columns, newColumns, cols)
+	statement.ColumnStr = strings.Join(newColumns, ", ")
+	statement.ColumnStr = strings.Replace(statement.ColumnStr, statement.Engine.quote("*"), "*", -1)
 	return statement
 }
 
@@ -1078,7 +1072,7 @@ func (s *Statement) genIndexSQL() []string {
 	quote := s.Engine.Quote
 	for idxName, index := range s.RefTable.Indexes {
 		if index.Type == core.IndexType {
-			sql := fmt.Sprintf("CREATE INDEX %v ON %v (%v);", quote(indexName(tbName, idxName)),
+			sql := fmt.Sprintf("CREATE INDEX %v ON %v (%v);", quote(indexName(s.RefTable.Name, idxName)),
 				quote(tbName), quote(strings.Join(index.Cols, quote(","))))
 			sqls = append(sqls, sql)
 		}
@@ -1092,10 +1086,9 @@ func uniqueName(tableName, uqeName string) string {
 
 func (s *Statement) genUniqueSQL() []string {
 	var sqls []string = make([]string, 0)
-	tbName := s.TableName()
 	for _, index := range s.RefTable.Indexes {
 		if index.Type == core.UniqueType {
-			sql := s.Engine.dialect.CreateIndexSql(tbName, index)
+			sql := s.Engine.dialect.CreateIndexSql(s.RefTable.Name, index)
 			sqls = append(sqls, sql)
 		}
 	}
@@ -1107,9 +1100,9 @@ func (s *Statement) genDelIndexSQL() []string {
 	for idxName, index := range s.RefTable.Indexes {
 		var rIdxName string
 		if index.Type == core.UniqueType {
-			rIdxName = uniqueName(s.TableName(), idxName)
+			rIdxName = uniqueName(s.RefTable.Name, idxName)
 		} else if index.Type == core.IndexType {
-			rIdxName = indexName(s.TableName(), idxName)
+			rIdxName = indexName(s.RefTable.Name, idxName)
 		}
 		sql := fmt.Sprintf("DROP INDEX %v", s.Engine.Quote(rIdxName))
 		if s.Engine.dialect.IndexOnTable() {

@@ -99,7 +99,7 @@ func (session *Session) txQueryRows(tx *core.Tx, sqlStr string, params ...interf
 }
 
 func (session *Session) innerQueryRows(db *core.DB, sqlStr string, params ...interface{}) (rows *core.Rows, err error) {
-	stmt, rows, err := session.Engine.LogSQLQueryTime(sqlStr, params, func() (*core.Stmt, *core.Rows, error) {
+	stmt, rows, err := session.Engine.logSQLQueryTime(sqlStr, params, func() (*core.Stmt, *core.Rows, error) {
 		stmt, err := db.Prepare(sqlStr)
 		if err != nil {
 			return stmt, nil, err

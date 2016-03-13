@@ -8,6 +8,10 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 [![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/tests/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm)
 
+# 注意
+
+最新的版本有不兼容的更新，您必须使用 `engine.ShowSQL()` 和 `engine.Logger().SetLevel()` 来替代 `engine.ShowSQL = `, `engine.ShowInfo = ` 等等。
+
 ## 特性
 
 * 支持Struct和数据库表之间的灵活映射，并支持自动同步
@@ -52,16 +56,20 @@ xorm是一个简单而强大的Go语言ORM库. 通过它可以使数据库操作
 
 ## 更新日志
 
+* **v0.5.0**
+    * logging接口进行不兼容改变
+    * Bug修正
+
+* **v0.4.5**
+    * bug修正
+    * extends 支持无限级
+    * Delete Limit 支持
+
 * **v0.4.4**
     * Tidb 数据库支持
     * QL 试验性支持
     * sql.NullString支持
     * ForUpdate 支持
-    * bug修正
-
-* **v0.4.3**
-    * Json 字段类型支持
-    * oracle实验性支持
     * bug修正
 
 [更多更新日志...](https://github.com/go-xorm/manual-zh-CN/tree/master/chapter-16)

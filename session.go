@@ -496,9 +496,9 @@ func (session *Session) exec(sqlStr string, args ...interface{}) (sql.Result, er
 
 	session.saveLastSQL(sqlStr, args...)
 
-	return session.Engine.LogSQLExecutionTime(sqlStr, args, func() (sql.Result, error) {
+	return session.Engine.logSQLExecutionTime(sqlStr, args, func() (sql.Result, error) {
 		if session.IsAutoCommit {
-			//oci8 can not auto commit (github.com/mattn/go-oci8)
+			// FIXME: oci8 can not auto commit (github.com/mattn/go-oci8)
 			if session.Engine.dialect.DBType() == core.ORACLE {
 				session.Begin()
 				r, err := session.Tx.Exec(sqlStr, args...)
@@ -523,7 +523,8 @@ func (session *Session) Exec(sqlStr string, args ...interface{}) (sql.Result, er
 
 // this function create a table according a bean
 func (session *Session) CreateTable(bean interface{}) error {
-	session.Statement.RefTable = session.Engine.TableInfo(bean)
+	v := rValue(bean)
+	session.Statement.RefTable = session.Engine.mapType(v)
 
 	defer session.resetStatement()
 	if session.IsAutoClose {
@@ -535,7 +536,8 @@ func (session *Session) CreateTable(bean interface{}) error {
 
 // create indexes
 func (session *Session) CreateIndexes(bean interface{}) error {
-	session.Statement.RefTable = session.Engine.TableInfo(bean)
+	v := rValue(bean)
+	session.Statement.RefTable = session.Engine.mapType(v)
 
 	defer session.resetStatement()
 	if session.IsAutoClose {
@@ -554,7 +556,8 @@ func (session *Session) CreateIndexes(bean interface{}) error {
 
 // create uniques
 func (session *Session) CreateUniques(bean interface{}) error {
-	session.Statement.RefTable = session.Engine.TableInfo(bean)
+	v := rValue(bean)
+	session.Statement.RefTable = session.Engine.mapType(v)
 
 	defer session.resetStatement()
 	if session.IsAutoClose {
@@ -573,7 +576,6 @@ func (session *Session) CreateUniques(bean interface{}) error {
 
 func (session *Session) createOneTable() error {
 	sqlStr := session.Statement.genCreateTableSQL()
-	session.Engine.LogDebug("create table sql: [", sqlStr, "]")
 	_, err := session.exec(sqlStr)
 	return err
 }
@@ -1058,16 +1060,7 @@ func (session *Session) Get(bean interface{}) (bool, error) {
 	var err error
 	session.queryPreprocess(&sqlStr, args...)
 	if session.IsAutoCommit {
-		if session.prepareStmt {
-			stmt, errPrepare := session.doPrepare(sqlStr)
-			if errPrepare != nil {
-				return false, errPrepare
-			}
-			// defer stmt.Close() // !nashtsai! don't close due to stmt is cached and bounded to this session
-			rawRows, err = stmt.Query(args...)
-		} else {
-			rawRows, err = session.DB().Query(sqlStr, args...)
-		}
+		_, rawRows, err = session.innerQuery(sqlStr, args...)
 	} else {
 		rawRows, err = session.Tx.Query(sqlStr, args...)
 	}
@@ -1241,7 +1234,7 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 				}
 				colName = session.Engine.Quote(nm) + "." + colName
 			}
-			session.Statement.ConditionStr = fmt.Sprintf("%v IS NULL OR %v = '0001-01-01 00:00:00'",
+			session.Statement.ConditionStr = fmt.Sprintf("(%v IS NULL OR %v = '0001-01-01 00:00:00')",
 				colName, colName)
 		}
 	}
@@ -1303,20 +1296,10 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 
 	if sliceValue.Kind() != reflect.Map {
 		var rawRows *core.Rows
-		var stmt *core.Stmt
 
 		session.queryPreprocess(&sqlStr, args...)
-
 		if session.IsAutoCommit {
-			if session.prepareStmt {
-				stmt, err = session.doPrepare(sqlStr)
-				if err != nil {
-					return err
-				}
-				rawRows, err = stmt.Query(args...)
-			} else {
-				rawRows, err = session.DB().Query(sqlStr, args...)
-			}
+			_, rawRows, err = session.innerQuery(sqlStr, args...)
 		} else {
 			rawRows, err = session.Tx.Query(sqlStr, args...)
 		}
@@ -1426,18 +1409,6 @@ func (session *Session) Ping() error {
 
 	return session.DB().Ping()
 }
-
-/*
-func (session *Session) isColumnExist(tableName string, col *core.Column) (bool, error) {
-	defer session.resetStatement()
-	if session.IsAutoClose {
-		defer session.Close()
-	}
-	return session.Engine.dialect.IsColumnExist(tableName, col)
-	//sqlStr, args := session.Engine.dialect.ColumnCheckSql(tableName, colName)
-	//results, err := session.query(sqlStr, args...)
-	//return len(results) > 0, err
-}*/
 
 func (engine *Engine) tableName(beanOrTableName interface{}) (string, error) {
 	v := rValue(beanOrTableName)
@@ -1597,7 +1568,7 @@ func (session *Session) dropAll() error {
 func (session *Session) getField(dataStruct *reflect.Value, key string, table *core.Table, idx int) *reflect.Value {
 	var col *core.Column
 	if col = table.GetColumnIdx(key, idx); col == nil {
-		session.Engine.LogWarn(fmt.Sprintf("table %v's has not column %v. %v", table.Name, key, table.Columns()))
+		session.Engine.LogWarn(fmt.Sprintf("table %v has no column %v. %v", table.Name, key, table.ColumnsSeq()))
 		return nil
 	}
 
@@ -2062,7 +2033,7 @@ func (session *Session) query(sqlStr string, paramStr ...interface{}) (resultsSl
 	session.queryPreprocess(&sqlStr, paramStr...)
 
 	if session.IsAutoCommit {
-		return session.innerQuery(sqlStr, paramStr...)
+		return session.innerQuery2(sqlStr, paramStr...)
 	}
 	return session.txQuery(session.Tx, sqlStr, paramStr...)
 }
@@ -2077,7 +2048,7 @@ func (session *Session) txQuery(tx *core.Tx, sqlStr string, params ...interface{
 	return rows2maps(rows)
 }
 
-func (session *Session) innerQuery(sqlStr string, params ...interface{}) ([]map[string][]byte, error) {
+func (session *Session) innerQuery(sqlStr string, params ...interface{}) (*core.Stmt, *core.Rows, error) {
 	var callback func() (*core.Stmt, *core.Rows, error)
 	if session.prepareStmt {
 		callback = func() (*core.Stmt, *core.Rows, error) {
@@ -2100,7 +2071,15 @@ func (session *Session) innerQuery(sqlStr string, params ...interface{}) ([]map[
 			return nil, rows, err
 		}
 	}
-	_, rows, err := session.Engine.LogSQLQueryTime(sqlStr, params, callback)
+	stmt, rows, err := session.Engine.logSQLQueryTime(sqlStr, params, callback)
+	if err != nil {
+		return nil, nil, err
+	}
+	return stmt, rows, nil
+}
+
+func (session *Session) innerQuery2(sqlStr string, params ...interface{}) ([]map[string][]byte, error) {
+	_, rows, err := session.innerQuery(sqlStr, params...)
 	if rows != nil {
 		defer rows.Close()
 	}
@@ -2228,12 +2207,12 @@ func (session *Session) innerInsertMulti(rowsSlicePtr interface{}) (int64, error
 					continue
 				}
 				if session.Statement.ColumnStr != "" {
-					if _, ok := session.Statement.columnMap[col.Name]; !ok {
+					if _, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; !ok {
 						continue
 					}
 				}
 				if session.Statement.OmitStr != "" {
-					if _, ok := session.Statement.columnMap[col.Name]; ok {
+					if _, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; ok {
 						continue
 					}
 				}
@@ -2276,12 +2255,12 @@ func (session *Session) innerInsertMulti(rowsSlicePtr interface{}) (int64, error
 					continue
 				}
 				if session.Statement.ColumnStr != "" {
-					if _, ok := session.Statement.columnMap[col.Name]; !ok {
+					if _, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; !ok {
 						continue
 					}
 				}
 				if session.Statement.OmitStr != "" {
-					if _, ok := session.Statement.columnMap[col.Name]; ok {
+					if _, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; ok {
 						continue
 					}
 				}
@@ -2309,10 +2288,8 @@ func (session *Session) innerInsertMulti(rowsSlicePtr interface{}) (int64, error
 	}
 	cleanupProcessorsClosures(&session.beforeClosures)
 
-	statement := fmt.Sprintf("INSERT INTO %v%v%v (%v%v%v) VALUES (%v)",
-		session.Engine.QuoteStr(),
-		session.Statement.TableName(),
-		session.Engine.QuoteStr(),
+	statement := fmt.Sprintf("INSERT INTO %s (%v%v%v) VALUES (%v)",
+		session.Engine.Quote(session.Statement.TableName()),
 		session.Engine.QuoteStr(),
 		strings.Join(colNames, session.Engine.QuoteStr()+", "+session.Engine.QuoteStr()),
 		session.Engine.QuoteStr(),
@@ -3184,10 +3161,8 @@ func (session *Session) innerInsert(bean interface{}) (int64, error) {
 		colPlaces = colPlaces[0 : len(colPlaces)-2]
 	}
 
-	sqlStr := fmt.Sprintf("INSERT INTO %v%v%v (%v%v%v) VALUES (%v)",
-		session.Engine.QuoteStr(),
-		session.Statement.TableName(),
-		session.Engine.QuoteStr(),
+	sqlStr := fmt.Sprintf("INSERT INTO %s (%v%v%v) VALUES (%v)",
+		session.Engine.Quote(session.Statement.TableName()),
 		session.Engine.QuoteStr(),
 		strings.Join(colNames, session.Engine.Quote(", ")),
 		session.Engine.QuoteStr(),
@@ -4052,6 +4027,19 @@ func (session *Session) LastSQL() (string, []interface{}) {
 	return session.lastSQL, session.lastSQLArgs
 }
 
+// tbName get some table's table name
+func (session *Session) tbName(table *core.Table) string {
+	var tbName = table.Name
+	if len(session.Statement.AltTableName) > 0 {
+		tbName = session.Statement.AltTableName
+	}
+
+	if len(session.Engine.dialect.URI().Schema) > 0 {
+		return session.Engine.dialect.URI().Schema + "." + tbName
+	}
+	return tbName
+}
+
 func (s *Session) Sync2(beans ...interface{}) error {
 	engine := s.Engine
 
@@ -4063,29 +4051,31 @@ func (s *Session) Sync2(beans ...interface{}) error {
 	structTables := make([]*core.Table, 0)
 
 	for _, bean := range beans {
-		table := engine.TableInfo(bean)
+		v := rValue(bean)
+		table := engine.mapType(v)
 		structTables = append(structTables, table)
+		var tbName = s.tbName(table)
 
 		var oriTable *core.Table
 		for _, tb := range tables {
-			if equalNoCase(tb.Name, table.Name) {
+			if equalNoCase(tb.Name, tbName) {
 				oriTable = tb
 				break
 			}
 		}
 
 		if oriTable == nil {
-			err = engine.StoreEngine(s.Statement.StoreEngine).CreateTable(bean)
+			err = s.StoreEngine(s.Statement.StoreEngine).CreateTable(bean)
 			if err != nil {
 				return err
 			}
 
-			err = engine.CreateUniques(bean)
+			err = s.CreateUniques(bean)
 			if err != nil {
 				return err
 			}
 
-			err = engine.CreateIndexes(bean)
+			err = s.CreateIndexes(bean)
 			if err != nil {
 				return err
 			}
@@ -4109,40 +4099,42 @@ func (s *Session) Sync2(beans ...interface{}) error {
 							if engine.dialect.DBType() == core.MYSQL ||
 								engine.dialect.DBType() == core.POSTGRES {
 								engine.LogInfof("Table %s column %s change type from %s to %s\n",
-									table.Name, col.Name, curType, expectedType)
-								_, err = engine.Exec(engine.dialect.ModifyColumnSql(table.Name, col))
+									tbName, col.Name, curType, expectedType)
+								_, err = engine.Exec(engine.dialect.ModifyColumnSql(engine.tbName(table), col))
 							} else {
 								engine.LogWarnf("Table %s column %s db type is %s, struct type is %s\n",
-									table.Name, col.Name, curType, expectedType)
+									tbName, col.Name, curType, expectedType)
 							}
 						} else if strings.HasPrefix(curType, core.Varchar) && strings.HasPrefix(expectedType, core.Varchar) {
 							if engine.dialect.DBType() == core.MYSQL {
 								if oriCol.Length < col.Length {
 									engine.LogInfof("Table %s column %s change type from varchar(%d) to varchar(%d)\n",
-										table.Name, col.Name, oriCol.Length, col.Length)
-									_, err = engine.Exec(engine.dialect.ModifyColumnSql(table.Name, col))
+										tbName, col.Name, oriCol.Length, col.Length)
+									_, err = engine.Exec(engine.dialect.ModifyColumnSql(engine.tbName(table), col))
 								}
 							}
 						} else {
-							engine.LogWarnf("Table %s column %s db type is %s, struct type is %s",
-								table.Name, col.Name, curType, expectedType)
+							if !(strings.HasPrefix(curType, expectedType) && curType[len(expectedType)] == '(') {
+								engine.LogWarnf("Table %s column %s db type is %s, struct type is %s",
+									tbName, col.Name, curType, expectedType)
+							}
 						}
 					} else if expectedType == core.Varchar {
 						if engine.dialect.DBType() == core.MYSQL {
 							if oriCol.Length < col.Length {
 								engine.LogInfof("Table %s column %s change type from varchar(%d) to varchar(%d)\n",
-									table.Name, col.Name, oriCol.Length, col.Length)
-								_, err = engine.Exec(engine.dialect.ModifyColumnSql(table.Name, col))
+									tbName, col.Name, oriCol.Length, col.Length)
+								_, err = engine.Exec(engine.dialect.ModifyColumnSql(engine.tbName(table), col))
 							}
 						}
 					}
 					if col.Default != oriCol.Default {
 						engine.LogWarnf("Table %s Column %s db default is %s, struct default is %s",
-							table.Name, col.Name, oriCol.Default, col.Default)
+							tbName, col.Name, oriCol.Default, col.Default)
 					}
 					if col.Nullable != oriCol.Nullable {
 						engine.LogWarnf("Table %s Column %s db nullable is %v, struct nullable is %v",
-							table.Name, col.Name, oriCol.Nullable, col.Nullable)
+							tbName, col.Name, oriCol.Nullable, col.Nullable)
 					}
 				} else {
 					session := engine.NewSession()
@@ -4170,7 +4162,7 @@ func (s *Session) Sync2(beans ...interface{}) error {
 
 				if oriIndex != nil {
 					if oriIndex.Type != index.Type {
-						sql := engine.dialect.DropIndexSql(table.Name, oriIndex)
+						sql := engine.dialect.DropIndexSql(tbName, oriIndex)
 						_, err = engine.Exec(sql)
 						if err != nil {
 							return err
@@ -4186,7 +4178,7 @@ func (s *Session) Sync2(beans ...interface{}) error {
 
 			for name2, index2 := range oriTable.Indexes {
 				if _, ok := foundIndexNames[name2]; !ok {
-					sql := engine.dialect.DropIndexSql(table.Name, index2)
+					sql := engine.dialect.DropIndexSql(tbName, index2)
 					_, err = engine.Exec(sql)
 					if err != nil {
 						return err
@@ -4199,12 +4191,12 @@ func (s *Session) Sync2(beans ...interface{}) error {
 					session := engine.NewSession()
 					session.Statement.RefTable = table
 					defer session.Close()
-					err = session.addUnique(table.Name, name)
+					err = session.addUnique(tbName, name)
 				} else if index.Type == core.IndexType {
 					session := engine.NewSession()
 					session.Statement.RefTable = table
 					defer session.Close()
-					err = session.addIndex(table.Name, name)
+					err = session.addIndex(tbName, name)
 				}
 				if err != nil {
 					return err
@@ -4216,21 +4208,20 @@ func (s *Session) Sync2(beans ...interface{}) error {
 	for _, table := range tables {
 		var oriTable *core.Table
 		for _, structTable := range structTables {
-			if equalNoCase(table.Name, structTable.Name) {
+			if equalNoCase(table.Name, s.tbName(structTable)) {
 				oriTable = structTable
 				break
 			}
 		}
 
 		if oriTable == nil {
-			engine.LogWarnf("Table %s has no struct to mapping it", table.Name)
+			//engine.LogWarnf("Table %s has no struct to mapping it", table.Name)
 			continue
 		}
 
 		for _, colName := range table.ColumnsSeq() {
 			if oriTable.GetColumn(colName) == nil {
-				engine.LogWarnf("Table %s has column %s but struct has not related field",
-					table.Name, colName)
+				engine.LogWarnf("Table %s has column %s but struct has not related field", table.Name, colName)
 			}
 		}
 	}

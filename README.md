@@ -6,6 +6,10 @@ Xorm is a simple and powerful ORM for Go.
 
 [![Build Status](https://drone.io/github.com/coscms/xorm/tests/status.png)](https://drone.io/github.com/coscms/xorm/tests/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/coscms/xorm) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xorm/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
+# Notice
+
+The last master version has non-compitable update. You should use `engine.ShowSQL()` and `engine.Logger().SetLevel()` to instead `engine.ShowSQL = `, `engine.ShowInfo = ` and etc.
+
 # Features
 
 * Struct <-> Table Mapping Support
@@ -50,6 +54,15 @@ Drivers for Go's sql package which currently support database/sql includes:
 * ql: [github.com/cznic/ql](https://github.com/cznic/ql) (experiment)
 
 # Changelog
+
+* **v0.5.0**
+    * logging interface changed
+    * some bugs fixed
+
+* **v0.4.5**
+    * many bugs fixed
+    * extends support unlimited deep
+    * Delete Limit support
 
 * **v0.4.4**
     * ql database expriment support

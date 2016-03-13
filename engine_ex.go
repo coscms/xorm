@@ -54,33 +54,42 @@ func (engine *Engine) SetTblMapper(mapper core.IMapper) {
 
 func (engine *Engine) OpenLog(types ...string) {
 	if len(types) < 1 {
+		for typ, _ := range engine.showLog {
+			engine.showLog[typ] = true
+			if typ == "sql" {
+				engine.ShowSQL(engine.showLog[typ])
+			}
+		}
 		return
 	}
 	for _, typ := range types {
 		engine.showLog[typ] = true
 		if typ == "sql" {
-			engine.ShowSQL = engine.showLog[typ]
+			engine.ShowSQL(engine.showLog[typ])
 		}
 	}
 }
 
 func (engine *Engine) CloseLog(types ...string) {
 	if len(types) < 1 {
+		for typ, _ := range engine.showLog {
+			engine.showLog[typ] = false
+			if typ == "sql" {
+				engine.ShowSQL(engine.showLog[typ])
+			}
+		}
 		return
 	}
 	for _, typ := range types {
 		engine.showLog[typ] = false
 		if typ == "sql" {
-			engine.ShowSQL = engine.showLog[typ]
+			engine.ShowSQL(engine.showLog[typ])
 		}
 	}
 }
 
 func (engine *Engine) TagLogError(tag string, contents ...interface{}) {
 	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowErr {
 		return
 	}
 	if fn, ok := LogTagProcessor[tag]; ok {
@@ -94,9 +103,6 @@ func (engine *Engine) TagLogError(tag string, contents ...interface{}) {
 
 func (engine *Engine) TagLogErrorf(tag string, format string, contents ...interface{}) {
 	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowErr {
 		return
 	}
 	if fn, ok := LogTagProcessor[tag]; ok {
@@ -113,9 +119,6 @@ func (engine *Engine) TagLogInfo(tag string, contents ...interface{}) {
 	if enable, _ := engine.showLog[tag]; !enable {
 		return
 	}
-	if !engine.ShowInfo {
-		return
-	}
 	if fn, ok := LogTagProcessor[tag]; ok {
 		_, contents = fn(tag, "", contents)
 		if contents == nil {
@@ -127,9 +130,6 @@ func (engine *Engine) TagLogInfo(tag string, contents ...interface{}) {
 
 func (engine *Engine) TagLogInfof(tag string, format string, contents ...interface{}) {
 	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowInfo {
 		return
 	}
 	if fn, ok := LogTagProcessor[tag]; ok {
@@ -146,9 +146,6 @@ func (engine *Engine) TagLogDebug(tag string, contents ...interface{}) {
 	if enable, _ := engine.showLog[tag]; !enable {
 		return
 	}
-	if !engine.ShowDebug {
-		return
-	}
 	if fn, ok := LogTagProcessor[tag]; ok {
 		_, contents = fn(tag, "", contents)
 		if contents == nil {
@@ -160,9 +157,6 @@ func (engine *Engine) TagLogDebug(tag string, contents ...interface{}) {
 
 func (engine *Engine) TagLogDebugf(tag string, format string, contents ...interface{}) {
 	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowDebug {
 		return
 	}
 	if fn, ok := LogTagProcessor[tag]; ok {
@@ -179,9 +173,6 @@ func (engine *Engine) TagLogWarn(tag string, contents ...interface{}) {
 	if enable, _ := engine.showLog[tag]; !enable {
 		return
 	}
-	if !engine.ShowWarn {
-		return
-	}
 	if fn, ok := LogTagProcessor[tag]; ok {
 		_, contents = fn(tag, "", contents)
 		if contents == nil {
@@ -193,9 +184,6 @@ func (engine *Engine) TagLogWarn(tag string, contents ...interface{}) {
 
 func (engine *Engine) TagLogWarnf(tag string, format string, contents ...interface{}) {
 	if enable, _ := engine.showLog[tag]; !enable {
-		return
-	}
-	if !engine.ShowWarn {
 		return
 	}
 	if fn, ok := LogTagProcessor[tag]; ok {
