@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/coscms/xorm/core"
 	"github.com/coscms/xorm"
 )
 
@@ -51,8 +52,8 @@ func runShell(cmd *Command, args []string) {
 		return
 	}
 
-	engine.ShowSQL, engine.ShowDebug = false, false
-	engine.ShowErr, engine.ShowWarn = false, false
+	engine.ShowSQL(false)
+	engine.Logger().SetLevel(core.LOG_UNKNOWN)
 
 	err = engine.Ping()
 	if err != nil {

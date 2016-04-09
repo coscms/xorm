@@ -37,7 +37,7 @@ type exprParam struct {
 	expr    string
 }
 
-// statement save all the sql info for executing SQL
+// Statement save all the sql info for executing SQL
 type Statement struct {
 	RefTable        *core.Table
 	Engine          *Engine
@@ -48,6 +48,7 @@ type Statement struct {
 	Params          []interface{}
 	OrderStr        string
 	JoinStr         string
+	joinArgs        []interface{}
 	GroupByStr      string
 	HavingStr       string
 	ColumnStr       string
@@ -81,7 +82,7 @@ type Statement struct {
 	exprColumns     map[string]exprParam
 }
 
-// init
+// Init reset all the statment's fields
 func (statement *Statement) Init() {
 	statement.RefTable = nil
 	statement.Start = 0
@@ -91,6 +92,7 @@ func (statement *Statement) Init() {
 	statement.OrderStr = ""
 	statement.UseCascade = true
 	statement.JoinStr = ""
+	statement.joinArgs = make([]interface{}, 0)
 	statement.GroupByStr = ""
 	statement.HavingStr = ""
 	statement.ColumnStr = ""
@@ -145,6 +147,11 @@ func (statement *Statement) Alias(alias string) *Statement {
 
 // Where add Where statment
 func (statement *Statement) Where(querystring string, args ...interface{}) *Statement {
+	// The second where will be triggered as And
+	if len(statement.WhereStr) > 0 {
+		return statement.And(querystring, args...)
+	}
+
 	if !strings.Contains(querystring, statement.Engine.dialect.EqStr()) {
 		querystring = strings.Replace(querystring, "=", statement.Engine.dialect.EqStr(), -1)
 	}
@@ -200,7 +207,7 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 	mustColumnMap map[string]bool, nullableMap map[string]bool,
 	columnMap map[string]bool, update, unscoped bool) ([]string, []interface{}) {
 
-	colNames := make([]string, 0)
+	var colNames = make([]string, 0)
 	var args = make([]interface{}, 0)
 	for _, col := range table.Columns() {
 		if !includeVersion && col.IsVersion {
@@ -224,7 +231,7 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 
 		fieldValuePtr, err := col.ValueOf(bean)
 		if err != nil {
-			engine.LogError(err)
+			engine.logger.Error(err)
 			continue
 		}
 
@@ -259,7 +266,7 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 			if structConvert, ok := fieldValue.Addr().Interface().(core.Conversion); ok {
 				data, err := structConvert.ToDB()
 				if err != nil {
-					engine.LogError(err)
+					engine.logger.Error(err)
 				} else {
 					val = data
 				}
@@ -270,7 +277,7 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 		if structConvert, ok := fieldValue.Interface().(core.Conversion); ok {
 			data, err := structConvert.ToDB()
 			if err != nil {
-				engine.LogError(err)
+				engine.logger.Error(err)
 			} else {
 				val = data
 			}
@@ -382,7 +389,7 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 			if col.SQLType.IsText() {
 				bytes, err := json.Marshal(fieldValue.Interface())
 				if err != nil {
-					engine.LogError(err)
+					engine.logger.Error(err)
 					continue
 				}
 				val = string(bytes)
@@ -399,7 +406,7 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 				} else {
 					bytes, err = json.Marshal(fieldValue.Interface())
 					if err != nil {
-						engine.LogError(err)
+						engine.logger.Error(err)
 						continue
 					}
 					val = bytes
@@ -423,12 +430,27 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 	return colNames, args
 }
 
+func (statement *Statement) needTableName() bool {
+	return len(statement.JoinStr) > 0
+}
+
+func (statement *Statement) colName(col *core.Column, tableName string) string {
+	if statement.needTableName() {
+		var nm = tableName
+		if len(statement.TableAlias) > 0 {
+			nm = statement.TableAlias
+		}
+		return statement.Engine.Quote(nm) + "." + statement.Engine.Quote(col.Name)
+	}
+	return statement.Engine.Quote(col.Name)
+}
+
 // Auto generating conditions according a struct
 func buildConditions(engine *Engine, table *core.Table, bean interface{},
 	includeVersion bool, includeUpdated bool, includeNil bool,
 	includeAutoIncr bool, allUseBool bool, useAllCols bool, unscoped bool,
 	mustColumnMap map[string]bool, tableName, aliasName string, addedTableName bool) ([]string, []interface{}) {
-	colNames := make([]string, 0)
+	var colNames []string
 	var args = make([]interface{}, 0)
 	for _, col := range table.Columns() {
 		if !includeVersion && col.IsVersion {
@@ -461,7 +483,7 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 
 		fieldValuePtr, err := col.ValueOf(bean)
 		if err != nil {
-			engine.LogError(err)
+			engine.logger.Error(err)
 			continue
 		}
 
@@ -557,7 +579,7 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 					if col.SQLType.IsText() {
 						bytes, err := json.Marshal(fieldValue.Interface())
 						if err != nil {
-							engine.LogError(err)
+							engine.logger.Error(err)
 							continue
 						}
 						val = string(bytes)
@@ -566,7 +588,7 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 						var err error
 						bytes, err = json.Marshal(fieldValue.Interface())
 						if err != nil {
-							engine.LogError(err)
+							engine.logger.Error(err)
 							continue
 						}
 						val = bytes
@@ -603,7 +625,7 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 			if col.SQLType.IsText() {
 				bytes, err := json.Marshal(fieldValue.Interface())
 				if err != nil {
-					engine.LogError(err)
+					engine.logger.Error(err)
 					continue
 				}
 				val = string(bytes)
@@ -620,7 +642,7 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 				} else {
 					bytes, err = json.Marshal(fieldValue.Interface())
 					if err != nil {
-						engine.LogError(err)
+						engine.logger.Error(err)
 						continue
 					}
 					val = bytes
@@ -645,7 +667,7 @@ func buildConditions(engine *Engine, table *core.Table, bean interface{},
 	return colNames, args
 }
 
-// return current tableName
+// TableName return current tableName
 func (statement *Statement) TableName() string {
 	if statement.AltTableName != "" {
 		return statement.AltTableName
@@ -661,12 +683,7 @@ func (statement *Statement) TableName() string {
 	return ""
 }
 
-var (
-	ptrPkType = reflect.TypeOf(&core.PK{})
-	pkType    = reflect.TypeOf(core.PK{})
-)
-
-// Generate "where id = ? " statment or for composite key "where key1 = ? and key2 = ?"
+// Id generate "where id = ? " statment or for composite key "where key1 = ? and key2 = ?"
 func (statement *Statement) Id(id interface{}) *Statement {
 	idValue := reflect.ValueOf(id)
 	idType := reflect.TypeOf(idValue.Interface())
@@ -675,16 +692,22 @@ func (statement *Statement) Id(id interface{}) *Statement {
 	case ptrPkType:
 		if pkPtr, ok := (id).(*core.PK); ok {
 			statement.IdParam = pkPtr
+			return statement
 		}
 	case pkType:
 		if pk, ok := (id).(core.PK); ok {
 			statement.IdParam = &pk
+			return statement
 		}
-	default:
-		// TODO: treat as int primitve for now, need to handle type check?
-		statement.IdParam = &core.PK{id}
 	}
 
+	switch idType.Kind() {
+	case reflect.String:
+		statement.IdParam = &core.PK{idValue.Convert(reflect.TypeOf("")).Interface()}
+		return statement
+	}
+
+	statement.IdParam = &core.PK{id}
 	return statement
 }
 
@@ -732,7 +755,7 @@ func (statement *Statement) getExpr() map[string]exprParam {
 	return statement.exprColumns
 }
 
-// Generate "Where column IN (?) " statment
+// In generate "Where column IN (?) " statment
 func (statement *Statement) In(column string, args ...interface{}) *Statement {
 	length := len(args)
 	if length == 0 {
@@ -766,7 +789,7 @@ func (statement *Statement) genInSql() (string, []interface{}) {
 	}
 
 	inStrs := make([]string, len(statement.inColumns), len(statement.inColumns))
-	args := make([]interface{}, 0)
+	args := make([]interface{}, 0, len(statement.inColumns))
 	var buf bytes.Buffer
 	var i int
 	for _, params := range statement.inColumns {
@@ -794,19 +817,6 @@ func (statement *Statement) attachInSql() {
 		statement.ConditionStr += inSql
 		statement.Params = append(statement.Params, inArgs...)
 	}
-}
-
-func col2NewCols(columns ...string) []string {
-	newColumns := make([]string, 0)
-	for _, col := range columns {
-		col = strings.Replace(col, "`", "", -1)
-		col = strings.Replace(col, `"`, "", -1)
-		ccols := strings.Split(col, ",")
-		for _, c := range ccols {
-			newColumns = append(newColumns, strings.TrimSpace(c))
-		}
-	}
-	return newColumns
 }
 
 func (statement *Statement) col2NewColsWithQuote(columns ...string) []string {
@@ -843,13 +853,13 @@ func (statement *Statement) ForUpdate() *Statement {
 	return statement
 }
 
-// replace select
+// Select replace select
 func (s *Statement) Select(str string) *Statement {
 	s.selectStr = str
 	return s
 }
 
-// Generate "col1, col2" statement
+// Cols generate "col1, col2" statement
 func (statement *Statement) Cols(columns ...string) *Statement {
 	cols := col2NewCols(columns...)
 	for _, nc := range cols {
@@ -863,13 +873,13 @@ func (statement *Statement) Cols(columns ...string) *Statement {
 	return statement
 }
 
-// Update use only: update all columns
+// AllCols update use only: update all columns
 func (statement *Statement) AllCols() *Statement {
 	statement.useAllCols = true
 	return statement
 }
 
-// Update use only: must update columns
+// MustCols update use only: must update columns
 func (statement *Statement) MustCols(columns ...string) *Statement {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
@@ -878,7 +888,7 @@ func (statement *Statement) MustCols(columns ...string) *Statement {
 	return statement
 }
 
-// indicates that use bool fields as update contents and query contiditions
+// UseBool indicates that use bool fields as update contents and query contiditions
 func (statement *Statement) UseBool(columns ...string) *Statement {
 	if len(columns) > 0 {
 		statement.MustCols(columns...)
@@ -888,7 +898,7 @@ func (statement *Statement) UseBool(columns ...string) *Statement {
 	return statement
 }
 
-// do not use the columns
+// Omit do not use the columns
 func (statement *Statement) Omit(columns ...string) {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
@@ -897,7 +907,7 @@ func (statement *Statement) Omit(columns ...string) {
 	statement.OmitStr = statement.Engine.Quote(strings.Join(newColumns, statement.Engine.Quote(", ")))
 }
 
-// Update use only: update columns to null when value is nullable and zero-value
+// Nullable Update use only: update columns to null when value is nullable and zero-value
 func (statement *Statement) Nullable(columns ...string) {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
@@ -905,13 +915,13 @@ func (statement *Statement) Nullable(columns ...string) {
 	}
 }
 
-// Generate LIMIT limit statement
+// Top generate LIMIT limit statement
 func (statement *Statement) Top(limit int) *Statement {
 	statement.Limit(limit)
 	return statement
 }
 
-// Generate LIMIT start, limit statement
+// Limit generate LIMIT start, limit statement
 func (statement *Statement) Limit(limit int, start ...int) *Statement {
 	statement.LimitN = limit
 	if len(start) > 0 {
@@ -920,7 +930,7 @@ func (statement *Statement) Limit(limit int, start ...int) *Statement {
 	return statement
 }
 
-// Generate "Order By order" statement
+// OrderBy generate "Order By order" statement
 func (statement *Statement) OrderBy(order string) *Statement {
 	if len(statement.OrderStr) > 0 {
 		statement.OrderStr += ", "
@@ -929,6 +939,7 @@ func (statement *Statement) OrderBy(order string) *Statement {
 	return statement
 }
 
+// Desc generate `ORDER BY xx DESC`
 func (statement *Statement) Desc(colNames ...string) *Statement {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, statement.OrderStr)
@@ -941,7 +952,7 @@ func (statement *Statement) Desc(colNames ...string) *Statement {
 	return statement
 }
 
-// Method Asc provide asc order by query condition, the input parameters are columns.
+// Asc provide asc order by query condition, the input parameters are columns.
 func (statement *Statement) Asc(colNames ...string) *Statement {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, statement.OrderStr)
@@ -954,13 +965,13 @@ func (statement *Statement) Asc(colNames ...string) *Statement {
 	return statement
 }
 
-//The join_operator should be one of INNER, LEFT OUTER, CROSS etc - this will be prepended to JOIN
-func (statement *Statement) Join(join_operator string, tablename interface{}, condition string) *Statement {
+// Join The joinOP should be one of INNER, LEFT OUTER, CROSS etc - this will be prepended to JOIN
+func (statement *Statement) Join(joinOP string, tablename interface{}, condition string, args ...interface{}) *Statement {
 	var buf bytes.Buffer
 	if len(statement.JoinStr) > 0 {
-		fmt.Fprintf(&buf, "%v %v JOIN ", statement.JoinStr, join_operator)
+		fmt.Fprintf(&buf, "%v %v JOIN ", statement.JoinStr, joinOP)
 	} else {
-		fmt.Fprintf(&buf, "%v JOIN ", join_operator)
+		fmt.Fprintf(&buf, "%v JOIN ", joinOP)
 	}
 
 	switch tablename.(type) {
@@ -998,22 +1009,23 @@ func (statement *Statement) Join(join_operator string, tablename interface{}, co
 
 	fmt.Fprintf(&buf, " ON %v", condition)
 	statement.JoinStr = buf.String()
+	statement.joinArgs = args
 	return statement
 }
 
-// Generate "Group By keys" statement
+// GroupBy generate "Group By keys" statement
 func (statement *Statement) GroupBy(keys string) *Statement {
 	statement.GroupByStr = keys
 	return statement
 }
 
-// Generate "Having conditions" statement
+// Having generate "Having conditions" statement
 func (statement *Statement) Having(conditions string) *Statement {
 	statement.HavingStr = fmt.Sprintf("HAVING %v", conditions)
 	return statement
 }
 
-// Always disable struct tag "deleted"
+// Unscoped always disable struct tag "deleted"
 func (statement *Statement) Unscoped() *Statement {
 	statement.unscoped = true
 	return statement
@@ -1060,10 +1072,6 @@ func (statement *Statement) genColumnStr() string {
 func (statement *Statement) genCreateTableSQL() string {
 	return statement.Engine.dialect.CreateTableSql(statement.RefTable, statement.AltTableName,
 		statement.StoreEngine, statement.Charset)
-}
-
-func indexName(tableName, idxName string) string {
-	return fmt.Sprintf("IDX_%v_%v", tableName, idxName)
 }
 
 func (s *Statement) genIndexSQL() []string {
@@ -1135,9 +1143,10 @@ func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) 
 	if len(statement.selectStr) > 0 {
 		columnStr = statement.selectStr
 	} else {
+		// TODO: always generate column names, not use * even if join
 		if len(statement.JoinStr) == 0 {
 			if len(columnStr) == 0 {
-				if statement.GroupByStr != "" {
+				if len(statement.GroupByStr) > 0 {
 					columnStr = statement.Engine.Quote(strings.Replace(statement.GroupByStr, ",", statement.Engine.Quote(","), -1))
 				} else {
 					columnStr = statement.genColumnStr()
@@ -1145,7 +1154,7 @@ func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) 
 			}
 		} else {
 			if len(columnStr) == 0 {
-				if statement.GroupByStr != "" {
+				if len(statement.GroupByStr) > 0 {
 					columnStr = statement.Engine.Quote(strings.Replace(statement.GroupByStr, ",", statement.Engine.Quote(","), -1))
 				} else {
 					columnStr = "*"
@@ -1155,7 +1164,7 @@ func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) 
 	}
 
 	statement.attachInSql() // !admpub!  fix bug:Iterate func missing "... IN (...)"
-	return statement.genSelectSql(columnStr), append(statement.Params, statement.BeanArgs...)
+	return statement.genSelectSQL(columnStr), append(append(statement.joinArgs, statement.Params...), statement.BeanArgs...)
 }
 
 func (s *Statement) genAddColumnStr(col *core.Column) (string, []interface{}) {
@@ -1198,15 +1207,15 @@ func (statement *Statement) genCountSql(bean interface{}) (string, []interface{}
 	}
 
 	// count(index fieldname) > count(0) > count(*)
-	var id string = "*"
+	var id = "*"
 	if statement.Engine.Dialect().DBType() == "ql" {
 		id = ""
 	}
 	statement.attachInSql()
-	return statement.genSelectSql(fmt.Sprintf("count(%v)", id)), append(statement.Params, statement.BeanArgs...)
+	return statement.genSelectSQL(fmt.Sprintf("count(%v)", id)), append(append(statement.joinArgs, statement.Params...), statement.BeanArgs...)
 }
 
-func (statement *Statement) genSelectSql(columnStr string) (a string) {
+func (statement *Statement) genSelectSQL(columnStr string) (a string) {
 	var distinct string
 	if statement.IsDistinct {
 		distinct = "DISTINCT "
@@ -1317,11 +1326,12 @@ func (statement *Statement) processIdParam() {
 	if statement.IdParam != nil {
 		if statement.Engine.dialect.DBType() != "ql" {
 			for i, col := range statement.RefTable.PKColumns() {
+				var colName = statement.colName(col, statement.TableName())
 				if i < len(*(statement.IdParam)) {
-					statement.And(fmt.Sprintf("%v %s ?", statement.Engine.Quote(col.Name),
+					statement.And(fmt.Sprintf("%v %s ?", colName,
 						statement.Engine.dialect.EqStr()), (*(statement.IdParam))[i])
 				} else {
-					statement.And(fmt.Sprintf("%v %s ?", statement.Engine.Quote(col.Name),
+					statement.And(fmt.Sprintf("%v %s ?", colName,
 						statement.Engine.dialect.EqStr()), "")
 				}
 			}

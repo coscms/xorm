@@ -98,7 +98,7 @@ func (engine *Engine) TagLogError(tag string, contents ...interface{}) {
 			return
 		}
 	}
-	engine.LogError(contents...)
+	engine.logger.Error(contents...)
 }
 
 func (engine *Engine) TagLogErrorf(tag string, format string, contents ...interface{}) {
@@ -111,7 +111,7 @@ func (engine *Engine) TagLogErrorf(tag string, format string, contents ...interf
 			return
 		}
 	}
-	engine.LogErrorf(format, contents...)
+	engine.logger.Errorf(format, contents...)
 }
 
 // logging info
@@ -125,7 +125,7 @@ func (engine *Engine) TagLogInfo(tag string, contents ...interface{}) {
 			return
 		}
 	}
-	engine.LogInfo(contents...)
+	engine.logger.Info(contents...)
 }
 
 func (engine *Engine) TagLogInfof(tag string, format string, contents ...interface{}) {
@@ -138,7 +138,7 @@ func (engine *Engine) TagLogInfof(tag string, format string, contents ...interfa
 			return
 		}
 	}
-	engine.LogInfof(format, contents...)
+	engine.logger.Infof(format, contents...)
 }
 
 // logging debug
@@ -152,7 +152,7 @@ func (engine *Engine) TagLogDebug(tag string, contents ...interface{}) {
 			return
 		}
 	}
-	engine.LogDebug(contents...)
+	engine.logger.Debug(contents...)
 }
 
 func (engine *Engine) TagLogDebugf(tag string, format string, contents ...interface{}) {
@@ -165,7 +165,7 @@ func (engine *Engine) TagLogDebugf(tag string, format string, contents ...interf
 			return
 		}
 	}
-	engine.LogDebugf(format, contents...)
+	engine.logger.Debugf(format, contents...)
 }
 
 // logging warn
@@ -179,7 +179,7 @@ func (engine *Engine) TagLogWarn(tag string, contents ...interface{}) {
 			return
 		}
 	}
-	engine.LogWarn(contents...)
+	engine.logger.Warn(contents...)
 }
 
 func (engine *Engine) TagLogWarnf(tag string, format string, contents ...interface{}) {
@@ -192,5 +192,5 @@ func (engine *Engine) TagLogWarnf(tag string, format string, contents ...interfa
 			return
 		}
 	}
-	engine.LogWarnf(format, contents...)
+	engine.logger.Warnf(format, contents...)
 }
