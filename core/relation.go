@@ -24,11 +24,10 @@ func (r *Relation) Alias(rawName string) string {
 }
 
 func (r *Relation) AliasGetByIndex(index int) string {
-	rawName := ``
 	if len(r.Extends) <= index {
 		return ``
 	}
-	return r.Alias(rawName)
+	return r.Alias(r.Extends[index].Name)
 }
 
 func (r *Relation) AddExtend(t *Table) {
