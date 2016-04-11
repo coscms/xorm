@@ -1043,11 +1043,11 @@ func (session *Session) Get(bean interface{}) (bool, error) {
 	session.Statement.Limit(1)
 	var sqlStr string
 	var args []interface{}
-
-	if session.Statement.RefTable == nil {
-		session.Statement.RefTable = session.Engine.TableInfo(bean)
-	}
-	session.Statement.SetRelation(session.Statement.RefTable.Relation) //[SWH|+]
+	/*
+		if session.Statement.RefTable == nil {
+			session.Statement.RefTable = session.Engine.TableInfo(bean)
+		}
+	*/
 	if session.Statement.RawSQL == "" {
 		sqlStr, args = session.Statement.genGetSql(bean)
 	} else {

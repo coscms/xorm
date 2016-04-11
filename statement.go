@@ -1143,6 +1143,8 @@ func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) 
 		table = statement.RefTable
 	}
 
+	statement.SetRelation(table.Relation) //[SWH|+]
+
 	var addedTableName = (len(statement.JoinStr()) > 0)
 
 	if !statement.noAutoCondition {
