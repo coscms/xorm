@@ -684,7 +684,7 @@ func (statement *Statement) convertIdSql(sqlStr string) string {
 
 func (session *Session) canCache() bool {
 	if session.Statement.RefTable == nil ||
-		session.Statement.JoinStr != "" ||
+		session.Statement.JoinStr() != "" ||
 		session.Statement.RawSQL != "" ||
 		session.Tx != nil ||
 		len(session.Statement.selectStr) > 0 {
@@ -1047,7 +1047,7 @@ func (session *Session) Get(bean interface{}) (bool, error) {
 	if session.Statement.RefTable == nil {
 		session.Statement.RefTable = session.Engine.TableInfo(bean)
 	}
-
+	session.Statement.SetRelation(session.Statement.RefTable.Relation) //[SWH|+]
 	if session.Statement.RawSQL == "" {
 		sqlStr, args = session.Statement.genGetSql(bean)
 	} else {
@@ -1055,7 +1055,7 @@ func (session *Session) Get(bean interface{}) (bool, error) {
 		args = session.Statement.RawParams
 	}
 
-	if session.Statement.JoinStr == "" {
+	if session.Statement.JoinStr() == "" {
 		if cacher := session.Engine.getCacher2(session.Statement.RefTable); cacher != nil &&
 			session.Statement.UseCache &&
 			!session.Statement.unscoped {
@@ -1158,7 +1158,9 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 		table = session.Statement.RefTable
 	}
 
-	var addedTableName = (len(session.Statement.JoinStr) > 0)
+	session.Statement.SetRelation(table.Relation) //[SWH|+]
+
+	var addedTableName = (len(session.Statement.JoinStr()) > 0)
 	if !session.Statement.noAutoCondition && len(condiBean) > 0 {
 		colNames, args := session.Statement.buildConditions(table, condiBean[0], true, true, false, true, addedTableName)
 		session.Statement.ConditionStr = strings.Join(colNames, " AND ")
@@ -1187,7 +1189,7 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 		if len(session.Statement.selectStr) > 0 {
 			columnStr = session.Statement.selectStr
 		} else {
-			if session.Statement.JoinStr == "" {
+			if session.Statement.JoinStr() == "" {
 				if columnStr == "" {
 					if session.Statement.GroupByStr != "" {
 						columnStr = session.Statement.Engine.Quote(strings.Replace(session.Statement.GroupByStr, ",", session.Engine.Quote(","), -1))
@@ -1223,7 +1225,7 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 	}
 
 	var err error
-	if session.Statement.JoinStr == "" {
+	if session.Statement.JoinStr() == "" {
 		if cacher := session.Engine.getCacher2(table); cacher != nil &&
 			session.Statement.UseCache &&
 			!session.Statement.IsDistinct &&

@@ -22,6 +22,7 @@ type Table struct {
 	Cacher        Cacher
 	StoreEngine   string
 	Charset       string
+	Relation      *Relation
 }
 
 func (table *Table) Columns() []*Column {

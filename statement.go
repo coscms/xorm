@@ -47,7 +47,7 @@ type Statement struct {
 	IdParam         *core.PK
 	Params          []interface{}
 	OrderStr        string
-	JoinStr         string
+	joinStr         string
 	joinArgs        []interface{}
 	GroupByStr      string
 	HavingStr       string
@@ -80,6 +80,11 @@ type Statement struct {
 	incrColumns     map[string]incrParam
 	decrColumns     map[string]decrParam
 	exprColumns     map[string]exprParam
+
+	//[SWH|+]
+	joinTables    joinTables
+	joinGenerated bool
+	relation      *core.Relation
 }
 
 // Init reset all the statment's fields
@@ -91,7 +96,7 @@ func (statement *Statement) Init() {
 	statement.Params = make([]interface{}, 0)
 	statement.OrderStr = ""
 	statement.UseCascade = true
-	statement.JoinStr = ""
+	statement.joinStr = ""
 	statement.joinArgs = make([]interface{}, 0)
 	statement.GroupByStr = ""
 	statement.HavingStr = ""
@@ -121,6 +126,11 @@ func (statement *Statement) Init() {
 	statement.incrColumns = make(map[string]incrParam)
 	statement.decrColumns = make(map[string]decrParam)
 	statement.exprColumns = make(map[string]exprParam)
+
+	//[SWH|+]
+	statement.joinTables = joinTables{}
+	statement.joinGenerated = false
+	statement.relation = nil
 }
 
 // NoAutoCondition if you do not want convert bean's field as query condition, then use this function
@@ -431,7 +441,7 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 }
 
 func (statement *Statement) needTableName() bool {
-	return len(statement.JoinStr) > 0
+	return len(statement.joinTables) > 0
 }
 
 func (statement *Statement) colName(col *core.Column, tableName string) string {
@@ -967,50 +977,53 @@ func (statement *Statement) Asc(colNames ...string) *Statement {
 
 // Join The joinOP should be one of INNER, LEFT OUTER, CROSS etc - this will be prepended to JOIN
 func (statement *Statement) Join(joinOP string, tablename interface{}, condition string, args ...interface{}) *Statement {
-	var buf bytes.Buffer
-	if len(statement.JoinStr) > 0 {
-		fmt.Fprintf(&buf, "%v %v JOIN ", statement.JoinStr, joinOP)
-	} else {
-		fmt.Fprintf(&buf, "%v JOIN ", joinOP)
-	}
-
-	switch tablename.(type) {
-	case []string:
-		t := tablename.([]string)
-		if len(t) > 1 {
-			fmt.Fprintf(&buf, "%v AS %v", statement.Engine.Quote(t[0]), statement.Engine.Quote(t[1]))
-		} else if len(t) == 1 {
-			fmt.Fprintf(&buf, statement.Engine.Quote(t[0]))
+	return statement.join(joinOP, tablename, condition, args...)
+	/*
+		var buf bytes.Buffer
+		if len(statement.JoinStr) > 0 {
+			fmt.Fprintf(&buf, "%v %v JOIN ", statement.JoinStr, joinOP)
+		} else {
+			fmt.Fprintf(&buf, "%v JOIN ", joinOP)
 		}
-	case []interface{}:
-		t := tablename.([]interface{})
-		l := len(t)
-		var table string
-		if l > 0 {
-			f := t[0]
-			v := rValue(f)
-			t := v.Type()
-			if t.Kind() == reflect.String {
-				table = f.(string)
-			} else if t.Kind() == reflect.Struct {
-				r := statement.Engine.autoMapType(v)
-				table = r.Name
+
+		switch tablename.(type) {
+		case []string:
+			t := tablename.([]string)
+			if len(t) > 1 {
+				fmt.Fprintf(&buf, "%v AS %v", statement.Engine.Quote(t[0]), statement.Engine.Quote(t[1]))
+			} else if len(t) == 1 {
+				fmt.Fprintf(&buf, statement.Engine.Quote(t[0]))
 			}
+		case []interface{}:
+			t := tablename.([]interface{})
+			l := len(t)
+			var table string
+			if l > 0 {
+				f := t[0]
+				v := rValue(f)
+				t := v.Type()
+				if t.Kind() == reflect.String {
+					table = f.(string)
+				} else if t.Kind() == reflect.Struct {
+					r := statement.Engine.autoMapType(v)
+					table = r.Name
+				}
+			}
+			if l > 1 {
+				fmt.Fprintf(&buf, "%v AS %v", statement.Engine.Quote(table),
+					statement.Engine.Quote(fmt.Sprintf("%v", t[1])))
+			} else if l == 1 {
+				fmt.Fprintf(&buf, statement.Engine.Quote(table))
+			}
+		default:
+			fmt.Fprintf(&buf, statement.Engine.Quote(fmt.Sprintf("%v", tablename)))
 		}
-		if l > 1 {
-			fmt.Fprintf(&buf, "%v AS %v", statement.Engine.Quote(table),
-				statement.Engine.Quote(fmt.Sprintf("%v", t[1])))
-		} else if l == 1 {
-			fmt.Fprintf(&buf, statement.Engine.Quote(table))
-		}
-	default:
-		fmt.Fprintf(&buf, statement.Engine.Quote(fmt.Sprintf("%v", tablename)))
-	}
 
-	fmt.Fprintf(&buf, " ON %v", condition)
-	statement.JoinStr = buf.String()
-	statement.joinArgs = args
-	return statement
+		fmt.Fprintf(&buf, " ON %v", condition)
+		statement.JoinStr = buf.String()
+		statement.joinArgs = args
+		return statement
+	*/
 }
 
 // GroupBy generate "Group By keys" statement
@@ -1044,7 +1057,7 @@ func (statement *Statement) genColumnStr() string {
 			continue
 		}
 
-		if statement.JoinStr != "" {
+		if statement.needTableName() {
 			var name string
 			if statement.TableAlias != "" {
 				name = statement.Engine.Quote(statement.TableAlias)
@@ -1130,7 +1143,7 @@ func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) 
 		table = statement.RefTable
 	}
 
-	var addedTableName = (len(statement.JoinStr) > 0)
+	var addedTableName = (len(statement.JoinStr()) > 0)
 
 	if !statement.noAutoCondition {
 		colNames, args := statement.buildConditions(table, bean, true, true, false, true, addedTableName)
@@ -1144,7 +1157,7 @@ func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) 
 		columnStr = statement.selectStr
 	} else {
 		// TODO: always generate column names, not use * even if join
-		if len(statement.JoinStr) == 0 {
+		if statement.JoinStr() != "" {
 			if len(columnStr) == 0 {
 				if len(statement.GroupByStr) > 0 {
 					columnStr = statement.Engine.Quote(strings.Replace(statement.GroupByStr, ",", statement.Engine.Quote(","), -1))
@@ -1196,8 +1209,8 @@ func (statement *Statement) buildConditions(table *core.Table, bean interface{},
 func (statement *Statement) genCountSql(bean interface{}) (string, []interface{}) {
 	table := statement.Engine.TableInfo(bean)
 	statement.RefTable = table
-
-	var addedTableName = (len(statement.JoinStr) > 0)
+	statement.SetRelation(table.Relation) //[SWH|+]
+	var addedTableName = (len(statement.JoinStr()) > 0)
 
 	if !statement.noAutoCondition {
 		colNames, args := statement.buildConditions(table, bean, true, true, false, true, addedTableName)
@@ -1251,8 +1264,8 @@ func (statement *Statement) genSelectSQL(columnStr string) (a string) {
 			fromStr += " AS " + quote(statement.TableAlias)
 		}
 	}
-	if statement.JoinStr != "" {
-		fromStr = fmt.Sprintf("%v %v", fromStr, statement.JoinStr)
+	if statement.JoinStr() != "" {
+		fromStr = fmt.Sprintf("%v %v", fromStr, statement.JoinStr())
 	}
 
 	if dialect.DBType() == core.MSSQL {

@@ -906,7 +906,7 @@ type TableName interface {
 	TableName() string
 }
 
-func (engine *Engine) mapType(v reflect.Value) *core.Table {
+func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Table {
 	t := v.Type()
 	table := engine.newTable()
 	if tb, ok := v.Interface().(TableName); ok {
@@ -927,7 +927,7 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 	var idFieldColName string
 	var err error
 	var hasCacheTag, hasNoCacheTag bool
-
+	var hasColumnField bool //[SWH|+]
 	for i := 0; i < t.NumField(); i++ {
 		tag := t.Field(i).Tag
 
@@ -958,7 +958,23 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 						}
 						fallthrough
 					case reflect.Struct:
-						parentTable := engine.mapType(fieldValue)
+						//[SWH|+]
+						var relation *core.Relation
+						if len(args) > 0 {
+							relation = args[0]
+						} else {
+							if table.Relation == nil {
+								table.Relation = core.NewRelation(table)
+							}
+							relation = table.Relation
+						}
+
+						parentTable := engine.mapType(fieldValue, relation)
+
+						//[SWH|+]
+						relation.AddExtend(parentTable)
+						relation.ExAlias[parentTable.Name] = t.Field(i).Name
+
 						for _, col := range parentTable.Columns() {
 							col.FieldName = fmt.Sprintf("%v.%v", t.Field(i).Name, col.FieldName)
 							table.AddColumn(col)
@@ -1147,7 +1163,7 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 		}
 
 		table.AddColumn(col)
-
+		hasColumnField = true //[SWH|+]
 		if fieldType.Kind() == reflect.Int64 && (strings.ToUpper(col.FieldName) == "ID" || strings.HasSuffix(strings.ToUpper(col.FieldName), ".ID")) {
 			idFieldColName = col.Name
 		}
@@ -1174,6 +1190,11 @@ func (engine *Engine) mapType(v reflect.Value) *core.Table {
 	if hasNoCacheTag {
 		engine.logger.Info("no cache on table:", table.Name)
 		table.Cacher = nil
+	}
+
+	//[SWH|+]
+	if table.Relation != nil {
+		table.Relation.HasColumnField = hasColumnField
 	}
 
 	return table
