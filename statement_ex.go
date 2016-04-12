@@ -126,12 +126,16 @@ func (statement *Statement) JoinStr() string {
 func (statement *Statement) SetRelation(r *core.Relation) {
 	statement.relation = r
 	if r != nil && len(r.Extends) > 0 {
-		if len(statement.TableAlias) == 0 {
-			name := r.Extends[0].Name
-			statement.TableAlias, _ = r.ExAlias[name]
-		}
 		if !r.HasColumnField {
 			statement.RefTable = r.Extends[0]
+			if len(statement.TableAlias) == 0 {
+				name := statement.RefTable.Name
+				statement.TableAlias, _ = r.ExAlias[name]
+			}
+		} else {
+			if len(statement.TableAlias) == 0 {
+				statement.TableAlias = r.Table.Type.Name()
+			}
 		}
 	}
 }
