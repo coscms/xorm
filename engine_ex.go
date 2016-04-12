@@ -55,36 +55,33 @@ func (engine *Engine) SetTblMapper(mapper core.IMapper) {
 func (engine *Engine) OpenLog(types ...string) {
 	if len(types) < 1 {
 		for typ, _ := range engine.showLog {
-			engine.showLog[typ] = true
-			if typ == "sql" {
-				engine.ShowSQL(engine.showLog[typ])
-			}
+			engine.setLogStatus(typ, true)
 		}
 		return
 	}
 	for _, typ := range types {
-		engine.showLog[typ] = true
-		if typ == "sql" {
-			engine.ShowSQL(engine.showLog[typ])
-		}
+		engine.setLogStatus(typ, true)
+	}
+}
+
+func (engine *Engine) setLogStatus(typ string, on bool) {
+	engine.showLog[typ] = on
+	if typ == "sql" {
+		engine.ShowSQL(on)
+	} else if typ == "etime" {
+		engine.ShowExecTime(on)
 	}
 }
 
 func (engine *Engine) CloseLog(types ...string) {
 	if len(types) < 1 {
 		for typ, _ := range engine.showLog {
-			engine.showLog[typ] = false
-			if typ == "sql" {
-				engine.ShowSQL(engine.showLog[typ])
-			}
+			engine.setLogStatus(typ, false)
 		}
 		return
 	}
 	for _, typ := range types {
-		engine.showLog[typ] = false
-		if typ == "sql" {
-			engine.ShowSQL(engine.showLog[typ])
-		}
+		engine.setLogStatus(typ, false)
 	}
 }
 
