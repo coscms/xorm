@@ -7,6 +7,18 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
+// == ORDER BY ==
+type orderBy []*orderByParam
+
+type orderByParam struct {
+	Field string //Column name
+	Sort  string // ASC/DESC
+}
+
+// == Fields ==
+type fields []string //for Omit
+
+// == JOIN ==
 type joinTables []*joinParam
 
 func (j *joinTables) New(stmt *Statement) *joinParam {
@@ -67,6 +79,8 @@ func (j *joinParam) String() string {
 	}
 	return joinStr
 }
+
+// == Extends Statement ==
 
 // Join The joinOP should be one of INNER, LEFT OUTER, CROSS etc - this will be prepended to JOIN
 func (statement *Statement) join(joinOP string, tablename interface{}, condition string, args ...interface{}) *Statement {
