@@ -121,8 +121,17 @@ func (statement *Statement) join(joinOP string, tablename interface{}, condition
 		if l > 1 {
 			join.Alias = fmt.Sprintf("%v", t[1])
 		}
+	case string:
+		join.Table = tablename.(string)
 	default:
-		join.Table = fmt.Sprintf("%v", tablename)
+		v := rValue(tablename)
+		t := v.Type()
+		if t.Kind() == reflect.Struct {
+			r := statement.Engine.autoMapType(v)
+			join.Table = r.Name
+		} else {
+			join.Table = fmt.Sprintf("%v", tablename)
+		}
 	}
 	return statement
 }
