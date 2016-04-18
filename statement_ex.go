@@ -149,7 +149,7 @@ func (statement *Statement) JoinStr() string {
 func (statement *Statement) SetRelation(r *core.Relation) {
 	statement.relation = r
 	if r != nil && len(r.Extends) > 0 {
-		if !r.HasColumnField {
+		if !r.IsTable {
 			statement.RefTable = r.Extends[0]
 			if len(statement.TableAlias) == 0 {
 				name := statement.RefTable.Name

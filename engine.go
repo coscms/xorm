@@ -927,7 +927,7 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 	var idFieldColName string
 	var err error
 	var hasCacheTag, hasNoCacheTag bool
-	var hasColumnField bool //[SWH|+]
+	var isTable bool //[SWH|+]
 	for i := 0; i < t.NumField(); i++ {
 		tag := t.Field(i).Tag
 
@@ -1163,7 +1163,7 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 		}
 
 		table.AddColumn(col)
-		hasColumnField = true //[SWH|+]
+		isTable = true //[SWH|+]
 		if fieldType.Kind() == reflect.Int64 && (strings.ToUpper(col.FieldName) == "ID" || strings.HasSuffix(strings.ToUpper(col.FieldName), ".ID")) {
 			idFieldColName = col.Name
 		}
@@ -1194,7 +1194,7 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 
 	//[SWH|+]
 	if table.Relation != nil {
-		table.Relation.HasColumnField = hasColumnField
+		table.Relation.IsTable = isTable
 	}
 
 	return table

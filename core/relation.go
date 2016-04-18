@@ -11,9 +11,9 @@ func NewRelation(table *Table) *Relation {
 
 type Relation struct {
 	*Table
-	HasColumnField bool
-	Extends        []*Table          //join关联表。
-	ExAlias        map[string]string //关联表真实表名和别名对照
+	IsTable bool
+	Extends []*Table          //join关联表。
+	ExAlias map[string]string //关联表真实表名和别名对照
 }
 
 func (r *Relation) Alias(rawName string) string {
