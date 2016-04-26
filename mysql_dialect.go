@@ -15,10 +15,6 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
-// func init() {
-// 	RegisterDialect("mysql", &mysql{})
-// }
-
 var (
 	mysqlReservedWords = map[string]bool{
 		"ADD":               true,
@@ -385,9 +381,11 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 		if colKey == "PRI" {
 			col.IsPrimaryKey = true
 		}
-		if colKey == "UNI" {
-			//col.is
-		}
+		/*
+			if colKey == "UNI" {
+				//col.is
+			}
+		*/
 
 		if extra == "auto_increment" {
 			col.IsAutoIncrement = true

@@ -11,10 +11,6 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
-// func init() {
-// 	core.RegisterDriver("mysql", &mysqlDriver{})
-// }
-
 type mysqlDriver struct {
 }
 

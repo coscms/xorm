@@ -13,9 +13,6 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
-// func init() {
-// 	RegisterDialect("postgres", &postgres{})
-// }
 // from http://www.postgresql.org/docs/current/static/sql-keywords-appendix.html
 var (
 	postgresReservedWords = map[string]bool{
@@ -986,11 +983,13 @@ WHERE c.relkind = 'r'::char AND c.relname = $1 AND s.table_schema = $2 AND f.att
 			col.SQLType = core.SQLType{core.Bool, 0, 0}
 		case "time without time zone":
 			col.SQLType = core.SQLType{core.Time, 0, 0}
+		case "oid":
+			col.SQLType = core.SQLType{core.BigInt, 0, 0}
 		default:
 			col.SQLType = core.SQLType{strings.ToUpper(dataType), 0, 0}
 		}
 		if _, ok := core.SqlTypes[col.SQLType.Name]; !ok {
-			return nil, nil, errors.New(fmt.Sprintf("unkonw colType %v", dataType))
+			return nil, nil, errors.New(fmt.Sprintf("unknow colType %v", dataType))
 		}
 
 		col.Length = maxLen
@@ -1086,4 +1085,11 @@ func (db *postgres) GetIndexes(tableName string) (map[string]*core.Index, error)
 
 func (db *postgres) Filters() []core.Filter {
 	return []core.Filter{&core.IdFilter{}, &core.QuoteFilter{}, &core.SeqFilter{"$", 1}}
+}
+
+func (db *postgres) TableName(tableName string) string {
+	if len(db.URI().Schema) > 0 && db.URI().Schema != `public` {
+		return db.URI().Schema + "." + tableName
+	}
+	return tableName
 }

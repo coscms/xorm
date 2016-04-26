@@ -8,10 +8,6 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
-// func init() {
-// 	core.RegisterDriver("sqlite3", &sqlite3Driver{})
-// }
-
 type sqlite3Driver struct {
 }
 

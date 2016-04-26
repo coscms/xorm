@@ -13,10 +13,6 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
-// func init() {
-// 	RegisterDialect("oracle", &oracle{})
-// }
-
 var (
 	oracleReservedWords = map[string]bool{
 		"ACCESS":                    true,

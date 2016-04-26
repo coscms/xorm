@@ -3889,9 +3889,7 @@ func (session *Session) tbName(table *core.Table) string {
 		tbName = session.Statement.AltTableName
 	}
 
-	if len(session.Engine.dialect.URI().Schema) > 0 {
-		return session.Engine.dialect.URI().Schema + "." + tbName
-	}
+	tbName = session.Engine.dialect.TableName(tbName)
 	return tbName
 }
 

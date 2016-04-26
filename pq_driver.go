@@ -14,11 +14,8 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
-// func init() {
-// 	core.RegisterDriver("postgres", &pqDriver{})
-// }
-
 type pqDriver struct {
+	*core.Uri
 }
 
 type values map[string]string
@@ -119,5 +116,13 @@ func (p *pqDriver) Parse(driverName, dataSourceName string) (*core.Uri, error) {
 	if len(db.Schema) == 0 {
 		db.Schema = "public"
 	}
+	p.Uri = db
 	return db, nil
+}
+
+func (db *pqDriver) TableName(tableName string) string {
+	if len(db.Schema) > 0 && db.Schema != `public` {
+		return db.Schema + "." + tableName
+	}
+	return tableName
 }
