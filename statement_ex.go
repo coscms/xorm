@@ -95,10 +95,10 @@ func (statement *Statement) join(joinOP string, tablename interface{}, condition
 	case []string:
 		t := tablename.([]string)
 		if len(t) > 1 {
-			join.Table = t[0]
+			join.Table = statement.withPrefix(t[0])
 			join.Alias = t[1]
 		} else if len(t) == 1 {
-			join.Table = t[0]
+			join.Table = statement.withPrefix(t[0])
 		}
 	case []interface{}:
 		t := tablename.([]interface{})
@@ -116,13 +116,13 @@ func (statement *Statement) join(joinOP string, tablename interface{}, condition
 			} else {
 				table = fmt.Sprintf("%v", f)
 			}
-			join.Table = table
+			join.Table = statement.withPrefix(table)
 		}
 		if l > 1 {
 			join.Alias = fmt.Sprintf("%v", t[1])
 		}
 	case string:
-		join.Table = tablename.(string)
+		join.Table = statement.withPrefix(tablename.(string))
 	default:
 		v := rValue(tablename)
 		t := v.Type()
@@ -130,10 +130,17 @@ func (statement *Statement) join(joinOP string, tablename interface{}, condition
 			r := statement.Engine.autoMapType(v)
 			join.Table = r.Name
 		} else {
-			join.Table = fmt.Sprintf("%v", tablename)
+			join.Table = statement.withPrefix(fmt.Sprintf("%v", tablename))
 		}
 	}
 	return statement
+}
+
+func (statement *Statement) withPrefix(tableName string) string {
+	if len(tableName) > 0 && tableName[0] == '~' {
+		return statement.Engine.TablePrefix + tableName[1:]
+	}
+	return tableName
 }
 
 func (statement *Statement) JoinStr() string {
