@@ -71,8 +71,8 @@ func (j *joinTables) fromRelation() string {
 	joinStr := ``
 	t := ``
 	for i, table := range r.Extends {
-		rt:=r.RelTables[i]
-		if rt==nil || !rt.IsValid() {
+		rt := r.RelTables[i]
+		if rt == nil || !rt.IsValid() {
 			continue
 		}
 		s := rt.JoinType + ` JOIN ` + j.statement.Engine.Quote(rt.TableName)
@@ -108,11 +108,15 @@ type joinParam struct {
 	Alias    string
 	ONStr    string
 	Args     []interface{}
+	SQLStr   string
 
 	statement *Statement
 }
 
 func (j *joinParam) String() string {
+	if len(j.SQLStr) > 0 {
+		return j.SQLStr
+	}
 	joinStr := j.Operator + ` JOIN ` + j.statement.Engine.Quote(j.Table)
 	if len(j.Alias) == 0 && j.statement.relation != nil {
 		j.Alias, _ = j.statement.relation.ExAlias[j.Table]
@@ -123,6 +127,7 @@ func (j *joinParam) String() string {
 	if len(j.ONStr) > 0 {
 		joinStr += ` ON ` + j.ONStr
 	}
+	j.SQLStr = joinStr
 	return joinStr
 }
 
@@ -167,6 +172,8 @@ func (statement *Statement) join(joinOP string, tablename interface{}, condition
 		if l > 1 {
 			join.Alias = fmt.Sprintf("%v", t[1])
 		}
+	case core.SQL:
+		join.SQLStr = joinOP + ` JOIN ` + string(tablename.(core.SQL))
 	case string:
 		join.Table = statement.withPrefix(tablename.(string))
 	default:

@@ -15,6 +15,8 @@ const (
 	ORACLE   = "oracle"
 )
 
+type SQL string
+
 // xorm SQL types
 type SQLType struct {
 	Name           string
