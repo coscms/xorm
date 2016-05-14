@@ -15,8 +15,10 @@ const (
 
 // database column
 type Column struct {
-	Name            string
-	FieldName       string
+	Name            string //表列名
+	TableName       string //表名称
+	FieldName       string //结构体字段名（完整路径）
+	AttrName        string //结构体属性名（即FieldName的不含路径版本）
 	SQLType         SQLType
 	Length          int
 	Length2         int

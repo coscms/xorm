@@ -259,6 +259,13 @@ func col2NewCols(columns ...string) []string {
 		col = strings.Replace(col, `"`, "", -1)
 		ccols := strings.Split(col, ",")
 		for _, c := range ccols {
+			cs := strings.SplitN(c, `.`, 2)
+			switch len(cs) {
+			case 2:
+				c = cs[0] + `.` + strings.ToLower(cs[1])
+			case 1:
+				c = strings.ToLower(cs[0])
+			}
 			newColumns = append(newColumns, strings.TrimSpace(c))
 		}
 	}

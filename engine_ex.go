@@ -2,6 +2,7 @@ package xorm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/coscms/xorm/core"
 )
@@ -41,6 +42,7 @@ var LogTagProcessor = map[string]func(tag string, format string, args []interfac
 
 func (engine *Engine) Init() {
 	engine.showLog = DefaultShowLog
+	engine.RelTagIdentifier = `rel`
 }
 
 func (engine *Engine) SetTblMapper(mapper core.IMapper) {
@@ -190,4 +192,8 @@ func (engine *Engine) TagLogWarnf(tag string, format string, contents ...interfa
 		}
 	}
 	engine.logger.Warnf(format, contents...)
+}
+
+func (engine *Engine) QuoteWithDelim(s, d string) string {
+	return engine.Quote(strings.Replace(s, d, engine.Quote(d), -1))
 }

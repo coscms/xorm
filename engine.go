@@ -45,9 +45,10 @@ type Engine struct {
 	disableGlobalCache bool
 
 	//[SWH|+]
-	showLog     map[string]bool
-	TablePrefix string
-	TableSuffix string
+	showLog          map[string]bool
+	TablePrefix      string
+	TableSuffix      string
+	RelTagIdentifier string
 }
 
 // ShowSQL show SQL statment or not on logger if log level is great than INFO
@@ -293,46 +294,6 @@ func (engine *Engine) logSQLExecutionTime(sqlStr string, args []interface{}, exe
 		return executionBlock()
 	}
 }
-
-// LogError logging error
-/*func (engine *Engine) LogError(contents ...interface{}) {
-	engine.logger.Err(contents...)
-}
-
-// LogErrorf logging errorf
-func (engine *Engine) LogErrorf(format string, contents ...interface{}) {
-	engine.logger.Errf(format, contents...)
-}
-
-// LogInfo logging info
-func (engine *Engine) LogInfo(contents ...interface{}) {
-	engine.logger.Info(contents...)
-}
-
-// LogInfof logging infof
-func (engine *Engine) LogInfof(format string, contents ...interface{}) {
-	engine.logger.Infof(format, contents...)
-}
-
-// LogDebug logging debug
-func (engine *Engine) LogDebug(contents ...interface{}) {
-	engine.logger.Debug(contents...)
-}
-
-// LogDebugf logging debugf
-func (engine *Engine) LogDebugf(format string, contents ...interface{}) {
-	engine.logger.Debugf(format, contents...)
-}
-
-// LogWarn logging warn
-func (engine *Engine) LogWarn(contents ...interface{}) {
-	engine.logger.Warning(contents...)
-}
-
-// LogWarnf logging warnf
-func (engine *Engine) LogWarnf(format string, contents ...interface{}) {
-	engine.logger.Warningf(format, contents...)
-}*/
 
 // Sql method let's you manualy write raw sql and operate
 // For example:
@@ -937,8 +898,16 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 		fieldType := fieldValue.Type()
 
 		if ormTagStr != "" {
-			col = &core.Column{FieldName: t.Field(i).Name, Nullable: true, IsPrimaryKey: false,
-				IsAutoIncrement: false, MapType: core.TWOSIDES, Indexes: make(map[string]bool)}
+			col = &core.Column{
+				FieldName:       t.Field(i).Name,
+				TableName:       table.Name,
+				Nullable:        true,
+				IsPrimaryKey:    false,
+				IsAutoIncrement: false,
+				MapType:         core.TWOSIDES,
+				Indexes:         make(map[string]bool),
+			}
+			col.AttrName = col.FieldName
 			tags := splitTag(ormTagStr)
 
 			if len(tags) > 0 {
@@ -972,10 +941,18 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 						parentTable := engine.mapType(fieldValue, relation)
 
 						//[SWH|+]
-						relation.AddExtend(parentTable)
+						relTagStr := tag.Get(engine.RelTagIdentifier)
+						relation.AddExtend(parentTable, relTagStr)
 						relation.ExAlias[parentTable.Name] = t.Field(i).Name
 
 						for _, col := range parentTable.Columns() {
+							if col.TableName == `` {
+								if _, ok := fieldValue.Interface().(TableName); ok {
+									col.TableName = fieldValue.Interface().(TableName).TableName()
+								} else {
+									col.TableName = engine.TableMapper.Obj2Table(fieldType.Name())
+								}
+							}
 							col.FieldName = fmt.Sprintf("%v.%v", t.Field(i).Name, col.FieldName)
 							table.AddColumn(col)
 						}

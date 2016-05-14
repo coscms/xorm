@@ -1169,14 +1169,7 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 		// !oinume! Add "<col> IS NULL" to WHERE whatever condiBean is given.
 		// See https://github.com/coscms/xorm/issues/179
 		if col := table.DeletedColumn(); col != nil && !session.Statement.unscoped { // tag "deleted" is enabled
-			var colName = session.Engine.Quote(col.Name)
-			if addedTableName {
-				var nm = session.Statement.TableName()
-				if len(session.Statement.TableAlias) > 0 {
-					nm = session.Statement.TableAlias
-				}
-				colName = session.Engine.Quote(nm) + "." + colName
-			}
+			colName := session.Statement.colName(col, addedTableName)
 			session.Statement.ConditionStr = fmt.Sprintf("(%v IS NULL OR %v = '0001-01-01 00:00:00')",
 				colName, colName)
 		}
@@ -1189,23 +1182,7 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 		if len(session.Statement.selectStr) > 0 {
 			columnStr = session.Statement.selectStr
 		} else {
-			if session.Statement.JoinStr() == "" {
-				if columnStr == "" {
-					if session.Statement.GroupByStr != "" {
-						columnStr = session.Statement.Engine.Quote(strings.Replace(session.Statement.GroupByStr, ",", session.Engine.Quote(","), -1))
-					} else {
-						columnStr = session.Statement.genColumnStr()
-					}
-				}
-			} else {
-				if columnStr == "" {
-					if session.Statement.GroupByStr != "" {
-						columnStr = session.Statement.Engine.Quote(strings.Replace(session.Statement.GroupByStr, ",", session.Engine.Quote(","), -1))
-					} else {
-						columnStr = "*"
-					}
-				}
-			}
+			columnStr = session.Statement.genColumnStr()
 		}
 
 		session.Statement.Params = append(session.Statement.joinArgs, append(session.Statement.Params, session.Statement.BeanArgs...)...)
@@ -1560,21 +1537,26 @@ func (session *Session) row2Bean(rows *core.Rows, fields []string, fieldsCount i
 }
 
 func (session *Session) _row2Bean(rows *core.Rows, fields []string, fieldsCount int, bean interface{}, dataStruct *reflect.Value, table *core.Table) error {
+	//定义保存数据库单行数据结果的变量
 	scanResults := make([]interface{}, fieldsCount)
-	for i := 0; i < len(fields); i++ {
+	for i := 0; i < fieldsCount; i++ {
 		var cell interface{}
 		scanResults[i] = &cell
 	}
+
+	//从数据库读取数据到scanResults
 	if err := rows.Scan(scanResults...); err != nil {
 		return err
 	}
 
+	//允许在把数据库结果赋予结构体之前进行一些自定义操作
 	if b, hasBeforeSet := bean.(BeforeSetProcessor); hasBeforeSet {
 		for ii, key := range fields {
 			b.BeforeSet(key, Cell(scanResults[ii].(*interface{})))
 		}
 	}
 
+	//允许在把数据库结果赋予结构体之后进行一些自定义操作
 	defer func() {
 		if b, hasAfterSet := bean.(AfterSetProcessor); hasAfterSet {
 			for ii, key := range fields {
@@ -1584,11 +1566,12 @@ func (session *Session) _row2Bean(rows *core.Rows, fields []string, fieldsCount 
 	}()
 
 	var tempMap = make(map[string]int)
+
+	//遍历数据库单行中的各个字段，并将其值赋予相应的结构体属性中
 	for ii, key := range fields {
-		var idx int
-		var ok bool
-		var lKey = strings.ToLower(key)
-		if idx, ok = tempMap[lKey]; !ok {
+		lKey := strings.ToLower(key) //小写表字段名
+		idx, ok := tempMap[lKey]
+		if !ok {
 			idx = 0
 		} else {
 			idx = idx + 1
@@ -1637,30 +1620,31 @@ func (session *Session) _row2Bean(rows *core.Rows, fields []string, fieldsCount 
 				var bs []byte
 				if rawValueType.Kind() == reflect.String {
 					bs = []byte(vv.String())
-				} else if rawValueType.ConvertibleTo(reflect.SliceOf(reflect.TypeOf(uint8(1)))) {
+				} else if rawValueType.ConvertibleTo(core.BytesType) {
 					bs = vv.Bytes()
 				} else {
-					return errors.New("unsupported database data type")
+					return fmt.Errorf("unsupported database data type: %s %v", key, rawValueType.Kind())
 				}
 
 				hasAssigned = true
 
-				if fieldValue.CanAddr() {
-					err := json.Unmarshal(bs, fieldValue.Addr().Interface())
-					if err != nil {
-						session.Engine.logger.Error(err)
-						return err
+				if len(bs) > 0 {
+					if fieldValue.CanAddr() {
+						err := json.Unmarshal(bs, fieldValue.Addr().Interface())
+						if err != nil {
+							session.Engine.logger.Error(key, err)
+							return err
+						}
+					} else {
+						x := reflect.New(fieldType)
+						err := json.Unmarshal(bs, x.Interface())
+						if err != nil {
+							session.Engine.logger.Error(key, err)
+							return err
+						}
+						fieldValue.Set(x.Elem())
 					}
-				} else {
-					x := reflect.New(fieldType)
-					err := json.Unmarshal(bs, x.Interface())
-					if err != nil {
-						session.Engine.logger.Error(err)
-						return err
-					}
-					fieldValue.Set(x.Elem())
 				}
-
 				continue
 			}
 
@@ -1675,20 +1659,22 @@ func (session *Session) _row2Bean(rows *core.Rows, fields []string, fieldsCount 
 				}
 
 				hasAssigned = true
-				if fieldValue.CanAddr() {
-					err := json.Unmarshal(bs, fieldValue.Addr().Interface())
-					if err != nil {
-						session.Engine.logger.Error(err)
-						return err
+				if len(bs) > 0 {
+					if fieldValue.CanAddr() {
+						err := json.Unmarshal(bs, fieldValue.Addr().Interface())
+						if err != nil {
+							session.Engine.logger.Error(err)
+							return err
+						}
+					} else {
+						x := reflect.New(fieldType)
+						err := json.Unmarshal(bs, x.Interface())
+						if err != nil {
+							session.Engine.logger.Error(err)
+							return err
+						}
+						fieldValue.Set(x.Elem())
 					}
-				} else {
-					x := reflect.New(fieldType)
-					err := json.Unmarshal(bs, x.Interface())
-					if err != nil {
-						session.Engine.logger.Error(err)
-						return err
-					}
-					fieldValue.Set(x.Elem())
 				}
 			case reflect.Slice, reflect.Array:
 				switch rawValueType.Kind() {
@@ -1802,21 +1788,27 @@ func (session *Session) _row2Bean(rows *core.Rows, fields []string, fieldsCount 
 					if rawValueType.Kind() == reflect.String {
 						hasAssigned = true
 						x := reflect.New(fieldType)
-						err := json.Unmarshal([]byte(vv.String()), x.Interface())
-						if err != nil {
-							session.Engine.logger.Error(err)
-							return err
+						b := []byte(vv.String())
+						if len(b) > 0 {
+							err := json.Unmarshal(b, x.Interface())
+							if err != nil {
+								session.Engine.logger.Error(err)
+								return err
+							}
+							fieldValue.Set(x.Elem())
 						}
-						fieldValue.Set(x.Elem())
 					} else if rawValueType.Kind() == reflect.Slice {
 						hasAssigned = true
 						x := reflect.New(fieldType)
-						err := json.Unmarshal(vv.Bytes(), x.Interface())
-						if err != nil {
-							session.Engine.logger.Error(err)
-							return err
+						b := vv.Bytes()
+						if len(b) > 0 {
+							err := json.Unmarshal(b, x.Interface())
+							if err != nil {
+								session.Engine.logger.Error(err)
+								return err
+							}
+							fieldValue.Set(x.Elem())
 						}
-						fieldValue.Set(x.Elem())
 					}
 				} else if session.Statement.UseCascade {
 					table := session.Engine.autoMapType(*fieldValue)
@@ -1974,20 +1966,26 @@ func (session *Session) _row2Bean(rows *core.Rows, fields []string, fieldsCount 
 					}
 				case core.Complex64Type:
 					var x complex64
-					err := json.Unmarshal([]byte(vv.String()), &x)
-					if err != nil {
-						session.Engine.logger.Error(err)
-					} else {
-						fieldValue.Set(reflect.ValueOf(&x))
+					b := []byte(vv.String())
+					if len(b) > 0 {
+						err := json.Unmarshal(b, &x)
+						if err != nil {
+							session.Engine.logger.Error(err)
+						} else {
+							fieldValue.Set(reflect.ValueOf(&x))
+						}
 					}
 					hasAssigned = true
 				case core.Complex128Type:
 					var x complex128
-					err := json.Unmarshal([]byte(vv.String()), &x)
-					if err != nil {
-						session.Engine.logger.Error(err)
-					} else {
-						fieldValue.Set(reflect.ValueOf(&x))
+					b := []byte(vv.String())
+					if len(b) > 0 {
+						err := json.Unmarshal(b, &x)
+						if err != nil {
+							session.Engine.logger.Error(err)
+						} else {
+							fieldValue.Set(reflect.ValueOf(&x))
+						}
 					}
 					hasAssigned = true
 				} // switch fieldType
@@ -2197,12 +2195,14 @@ func (session *Session) innerInsertMulti(rowsSlicePtr interface{}) (int64, error
 					continue
 				}
 				if session.Statement.ColumnStr != "" {
-					if _, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; !ok {
+					if get, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; !ok {
+						continue
+					} else if !get {
 						continue
 					}
 				}
 				if session.Statement.OmitStr != "" {
-					if _, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; ok {
+					if get, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; ok && !get {
 						continue
 					}
 				}
@@ -2245,12 +2245,14 @@ func (session *Session) innerInsertMulti(rowsSlicePtr interface{}) (int64, error
 					continue
 				}
 				if session.Statement.ColumnStr != "" {
-					if _, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; !ok {
+					if get, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; !ok {
+						continue
+					} else if !get {
 						continue
 					}
 				}
 				if session.Statement.OmitStr != "" {
-					if _, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; ok {
+					if get, ok := session.Statement.columnMap[strings.ToLower(col.Name)]; ok && !get {
 						continue
 					}
 				}

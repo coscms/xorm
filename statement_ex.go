@@ -18,32 +18,78 @@ type orderByParam struct {
 // == Fields ==
 type fields []string //for Omit
 
+func newJoinTables(stmt *Statement) *joinTables {
+	return &joinTables{
+		params:    []*joinParam{},
+		statement: stmt,
+	}
+}
+
 // == JOIN ==
-type joinTables []*joinParam
+type joinTables struct {
+	params    []*joinParam
+	statement *Statement
+}
 
 func (j *joinTables) New(stmt *Statement) *joinParam {
 	join := NewJoinParam(stmt)
-	*j = append(*j, join)
+	j.params = append(j.params, join)
 	return join
 }
 
 func (j *joinTables) Add(join *joinParam) {
-	*j = append(*j, join)
+	j.params = append(j.params, join)
 }
 
-func (j joinTables) String() string {
+func (j *joinTables) Size() int {
+	return len(j.params)
+}
+
+func (j *joinTables) HasJoin() bool {
+	return j.Size() > 0
+}
+
+func (j *joinTables) String() string {
+	joinStr := ``
+	if j.Size() > 0 {
+		t := ``
+		for _, join := range j.params {
+			joinStr += t + join.String()
+			t = ` `
+		}
+	} else {
+		joinStr = j.fromRelation()
+	}
+	return joinStr
+}
+
+func (j *joinTables) fromRelation() string {
+	r := j.statement.relation
+	if r == nil || r.IsTable {
+		return ``
+	}
 	joinStr := ``
 	t := ``
-	for _, join := range j {
-		joinStr += t + join.String()
+	for i, table := range r.Extends {
+		rt:=r.RelTables[i]
+		if rt==nil || !rt.IsValid() {
+			continue
+		}
+		s := rt.JoinType + ` JOIN ` + j.statement.Engine.Quote(rt.TableName)
+		alias, _ := r.ExAlias[table.Name]
+		if len(alias) > 0 {
+			s += ` AS ` + j.statement.Engine.Quote(alias)
+		}
+		s += ` ON ` + rt.Where
+		joinStr += t + s
 		t = ` `
 	}
 	return joinStr
 }
 
-func (j joinTables) Args() []interface{} {
+func (j *joinTables) Args() []interface{} {
 	args := make([]interface{}, 0)
-	for _, join := range j {
+	for _, join := range j.params {
 		args = append(args, join.Args...)
 	}
 	return args
@@ -155,17 +201,18 @@ func (statement *Statement) JoinStr() string {
 
 func (statement *Statement) SetRelation(r *core.Relation) {
 	statement.relation = r
-	if r != nil && len(r.Extends) > 0 {
-		if !r.IsTable {
-			statement.RefTable = r.Extends[0]
-			if len(statement.TableAlias) == 0 {
-				name := statement.RefTable.Name
-				statement.TableAlias, _ = r.ExAlias[name]
-			}
-		} else {
-			if len(statement.TableAlias) == 0 {
-				statement.TableAlias = r.Table.Type.Name()
-			}
+	if r == nil || len(r.Extends) < 1 {
+		return
+	}
+	if !r.IsTable {
+		statement.RefTable = r.Extends[0]
+		if len(statement.TableAlias) == 0 {
+			name := statement.RefTable.Name
+			statement.TableAlias, _ = r.ExAlias[name]
+		}
+	} else {
+		if len(statement.TableAlias) == 0 {
+			statement.TableAlias = r.Table.Type.Name()
 		}
 	}
 }

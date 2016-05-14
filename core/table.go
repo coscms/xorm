@@ -7,10 +7,13 @@ import (
 
 // database table
 type Table struct {
-	Name          string
-	Type          reflect.Type
-	columnsSeq    []string
-	columnsMap    map[string][]*Column
+	Name       string
+	Type       reflect.Type
+	columnsSeq []string
+
+	// 表字段名称或对应的列信息(支持多个相同名称的字段)
+	columnsMap map[string][]*Column
+
 	columns       []*Column
 	Indexes       map[string]*Index
 	PrimaryKeys   []string
@@ -22,7 +25,9 @@ type Table struct {
 	Cacher        Cacher
 	StoreEngine   string
 	Charset       string
-	Relation      *Relation
+
+	// 表关联信息
+	Relation *Relation
 }
 
 func (table *Table) Columns() []*Column {
@@ -48,6 +53,7 @@ func NewTable(name string, t reflect.Type) *Table {
 	}
 }
 
+// GetColumn 根据表字段名称获取列信息
 func (table *Table) GetColumn(name string) *Column {
 	if c, ok := table.columnsMap[strings.ToLower(name)]; ok {
 		return c[0]
@@ -55,6 +61,7 @@ func (table *Table) GetColumn(name string) *Column {
 	return nil
 }
 
+// GetColumnIdx 根据表字段名称和重名的顺序索引获取列信息
 func (table *Table) GetColumnIdx(name string, idx int) *Column {
 	if c, ok := table.columnsMap[strings.ToLower(name)]; ok {
 		if idx < len(c) {
