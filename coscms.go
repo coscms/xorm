@@ -1,6 +1,7 @@
 package xorm
 
 import (
+	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
@@ -347,6 +348,62 @@ func (this *Engine) RawInsert(table string, sets map[string]interface{}) (lastId
 	return this.RawExec(sql, true, params...)
 }
 
+func (this *Engine) RawOnlyInsert(table string, sets map[string]interface{}) (sql.Result, error) {
+	fields := ""
+	values := ""
+	params := make([]interface{}, 0)
+	delim := ""
+	for k, v := range sets {
+		fields += delim + this.Quote(k)
+		values += delim + "?"
+		params = append(params, v)
+		delim = ","
+	}
+	sql := `INSERT INTO ` + this.fullTableName(table) + ` (` + fields + `) VALUES (` + values + `)`
+	return this.RawExecr(sql, params...)
+}
+
+func (this *Engine) RawBatchInsert(table string, multiSets []map[string]interface{}) (sql.Result, error) {
+	fields := ""
+	values := ""
+	params := make([]interface{}, 0)
+	keyIdx := map[string]int{}
+	length := 0
+	delim := ""
+	for i, sets := range multiSets {
+		innerDelim := ""
+		values += delim + "("
+		if i == 0 {
+			idx := 0
+			for k, v := range sets {
+				keyIdx[k] = idx
+				fields += innerDelim + this.Quote(k)
+				values += innerDelim + "?"
+				params = append(params, v)
+				innerDelim = ","
+				idx++
+			}
+			length = idx
+		} else {
+			innerParams := make([]interface{}, length)
+			for k, idx := range keyIdx {
+				v, _ := sets[k]
+				values += innerDelim + "?"
+				innerParams[idx] = v
+				innerDelim = ","
+			}
+			params = append(params, innerParams...)
+		}
+		values += ")"
+		delim = ","
+	}
+	if values == `` {
+		return nil, nil
+	}
+	sql := `INSERT INTO ` + this.fullTableName(table) + ` (` + fields + `) VALUES ` + values
+	return this.RawExecr(sql, params...)
+}
+
 func (this *Engine) RawReplace(table string, sets map[string]interface{}) int64 {
 	fields := ""
 	values := ""
@@ -400,31 +457,6 @@ func (this *Engine) RawDelete(table string, where string, params ...interface{})
 		}
 	}
 	return this.RawExec(sql, false, params...)
-}
-
-func (this *Engine) ReplaceTablePrefix(sql string) (r string) {
-	r = strings.Replace(sql, "~", this.TablePrefix, -1)
-	return
-}
-
-func (this *Engine) TableName(table string) string {
-	return this.TablePrefix + table + this.TableSuffix
-}
-
-func (this *Engine) fullTableName(table string) string {
-	if table[0] != '`' && table[0] != '~' {
-		table = this.Quote(this.TableName(table))
-	}
-	table = this.ReplaceTablePrefix(table)
-	return table
-}
-
-func (this *Engine) QuoteValue(s string) string {
-	return "'" + AddSlashes(s) + "'"
-}
-
-func (this *Engine) QuoteKey(s string) string {
-	return this.Quote(s)
 }
 
 /**
@@ -482,6 +514,39 @@ func (this *Engine) RawExec(sql string, retId bool, params ...interface{}) (affe
 		this.TagLogError("base", err)
 	}
 	return
+}
+
+func (this *Engine) RawExecr(sql string, params ...interface{}) (result sql.Result, err error) {
+	result, err = this.Exec(sql, params...)
+	if err != nil {
+		this.TagLogError("base", err)
+	}
+	return
+}
+
+func (this *Engine) ReplaceTablePrefix(sql string) (r string) {
+	r = strings.Replace(sql, "~", this.TablePrefix, -1)
+	return
+}
+
+func (this *Engine) TableName(table string) string {
+	return this.TablePrefix + table + this.TableSuffix
+}
+
+func (this *Engine) fullTableName(table string) string {
+	if table[0] != '`' && table[0] != '~' {
+		table = this.Quote(this.TableName(table))
+	}
+	table = this.ReplaceTablePrefix(table)
+	return table
+}
+
+func (this *Engine) QuoteValue(s string) string {
+	return "'" + AddSlashes(s) + "'"
+}
+
+func (this *Engine) QuoteKey(s string) string {
+	return this.Quote(s)
 }
 
 // =====================================
