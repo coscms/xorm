@@ -336,14 +336,12 @@ func (this *Engine) RawInsert(table string, sets map[string]interface{}) (lastId
 	fields := ""
 	values := ""
 	params := make([]interface{}, 0)
+	delim := ""
 	for k, v := range sets {
-		if fields != "" {
-			fields += ","
-			values += ","
-		}
-		fields += this.Quote(k)
-		values += "?"
+		fields += delim + this.Quote(k)
+		values += delim + "?"
 		params = append(params, v)
+		delim = ","
 	}
 	sql := `INSERT INTO ` + this.fullTableName(table) + ` (` + fields + `) VALUES (` + values + `)`
 	return this.RawExec(sql, true, params...)
@@ -353,14 +351,12 @@ func (this *Engine) RawReplace(table string, sets map[string]interface{}) int64 
 	fields := ""
 	values := ""
 	params := make([]interface{}, 0)
+	delim := ""
 	for k, v := range sets {
-		if fields != "" {
-			fields += ","
-			values += ","
-		}
-		fields += this.Quote(k)
-		values += "?"
+		fields += delim + this.Quote(k)
+		values += delim + "?"
 		params = append(params, v)
+		delim = ","
 	}
 	sql := `REPLACE INTO ` + this.fullTableName(table) + ` (` + fields + `) VALUES (` + values + `)`
 	return this.RawExec(sql, false, params...)
@@ -369,12 +365,11 @@ func (this *Engine) RawReplace(table string, sets map[string]interface{}) int64 
 func (this *Engine) RawUpdate(table string, sets map[string]interface{}, where string, args ...interface{}) int64 {
 	set := ""
 	params := make([]interface{}, 0)
+	delim := ""
 	for k, v := range sets {
-		if set != "" {
-			set += ","
-		}
-		set += this.Quote(k) + "=?"
+		set += this.Quote(k) + "=?" + delim
 		params = append(params, v)
+		delim = ","
 	}
 	if len(args) > 0 {
 		isAloneSlice := false
@@ -567,13 +562,12 @@ func BuildSqlResult(sqlStr string, args interface{}) string {
 			switch v.(type) {
 			case []interface{}:
 				vals := v.([]interface{})
+				delim := ""
 				for _, v := range vals {
-					if val != "" {
-						val += ","
-					}
 					rv := fmt.Sprintf("%v", v)
 					rv = AddSlashes(rv)
-					val += "'" + rv + "'"
+					val += delim + "'" + rv + "'"
+					delim = ","
 				}
 				val = strings.Replace(val, "'", `\'`, -1)
 			default:
