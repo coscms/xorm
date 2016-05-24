@@ -82,6 +82,15 @@ func (r *ResultSet) SetByName(name string, value string) bool {
 // =====================================
 // 增加Session结构体中的方法
 // =====================================
+func (session *Session) Query2(sqlStr string, paramStr ...interface{}) ([]map[string]string, error) {
+	defer session.resetStatement()
+	if session.IsAutoClose {
+		defer session.Close()
+	}
+
+	return session.query2(sqlStr, paramStr...)
+}
+
 func (session *Session) queryRows(sqlStr string, paramStr ...interface{}) (rows *core.Rows, err error) {
 	session.queryPreprocess(&sqlStr, paramStr...)
 
