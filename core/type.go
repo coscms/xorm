@@ -15,6 +15,8 @@ const (
 	ORACLE   = "oracle"
 )
 
+type SQL string
+
 // xorm SQL types
 type SQLType struct {
 	Name           string
@@ -207,6 +209,7 @@ var (
 	StringType = reflect.TypeOf(c_EMPTY_STRING)
 	BoolType   = reflect.TypeOf(c_BOOL_DEFAULT)
 	ByteType   = reflect.TypeOf(c_BYTE_DEFAULT)
+	BytesType  = reflect.SliceOf(ByteType)
 
 	TimeType = reflect.TypeOf(c_TIME_DEFAULT)
 )

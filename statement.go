@@ -82,7 +82,7 @@ type Statement struct {
 	exprColumns     map[string]exprParam
 
 	//[SWH|+]
-	joinTables    joinTables
+	joinTables    *joinTables
 	joinGenerated bool
 	relation      *core.Relation
 }
@@ -128,7 +128,7 @@ func (statement *Statement) Init() {
 	statement.exprColumns = make(map[string]exprParam)
 
 	//[SWH|+]
-	statement.joinTables = joinTables{}
+	statement.joinTables = newJoinTables(statement)
 	statement.joinGenerated = false
 	statement.relation = nil
 }
@@ -446,240 +446,35 @@ func buildUpdates(engine *Engine, table *core.Table, bean interface{},
 }
 
 func (statement *Statement) needTableName() bool {
-	return len(statement.joinTables) > 0
+	return len(statement.JoinStr()) > 0
 }
 
-func (statement *Statement) colName(col *core.Column, tableName string) string {
-	if statement.needTableName() {
-		var nm = tableName
-		if len(statement.TableAlias) > 0 {
-			nm = statement.TableAlias
-		}
-		return statement.Engine.Quote(nm) + "." + statement.Engine.Quote(col.Name)
-	}
-	return statement.Engine.Quote(col.Name)
+func (statement *Statement) colName(col *core.Column, needTableName bool) string {
+	return statement.buildColName(col, statement.TableAlias, needTableName, false)
 }
 
-// Auto generating conditions according a struct
-func buildConditions(engine *Engine, table *core.Table, bean interface{},
-	includeVersion bool, includeUpdated bool, includeNil bool,
-	includeAutoIncr bool, allUseBool bool, useAllCols bool, unscoped bool,
-	mustColumnMap map[string]bool, tableName, aliasName string, addedTableName bool) ([]string, []interface{}) {
-	var colNames []string
-	var args = make([]interface{}, 0)
-	for _, col := range table.Columns() {
-		if !includeVersion && col.IsVersion {
-			continue
-		}
-		if !includeUpdated && col.IsUpdated {
-			continue
-		}
-		if !includeAutoIncr && col.IsAutoIncrement {
-			continue
-		}
-
-		if engine.dialect.DBType() == core.MSSQL && col.SQLType.Name == core.Text {
-			continue
-		}
-		if col.SQLType.IsJson() {
-			continue
-		}
-
-		var colName string
-		if addedTableName {
-			var nm = tableName
-			if len(aliasName) > 0 {
-				nm = aliasName
-			}
-			colName = engine.Quote(nm) + "." + engine.Quote(col.Name)
+func (statement *Statement) buildColName(col *core.Column, alias string, needTableName bool, forSelectStr bool) string {
+	var (
+		name    string
+		colName string
+	)
+	if needTableName {
+		if len(alias) > 0 {
+			name = alias
 		} else {
-			colName = engine.Quote(col.Name)
+			name = col.TableName
 		}
-
-		fieldValuePtr, err := col.ValueOf(bean)
-		if err != nil {
-			engine.logger.Error(err)
-			continue
-		}
-
-		if col.IsDeleted && !unscoped { // tag "deleted" is enabled
-			colNames = append(colNames, fmt.Sprintf("(%v IS NULL OR %v = '0001-01-01 00:00:00')",
-				colName, colName))
-		}
-
-		fieldValue := *fieldValuePtr
-		if fieldValue.Interface() == nil {
-			continue
-		}
-
-		fieldType := reflect.TypeOf(fieldValue.Interface())
-		requiredField := useAllCols
-		if b, ok := mustColumnMap[strings.ToLower(col.Name)]; ok {
-			if b {
-				requiredField = true
-			} else {
-				continue
-			}
-		}
-
-		if fieldType.Kind() == reflect.Ptr {
-			if fieldValue.IsNil() {
-				if includeNil {
-					args = append(args, nil)
-					colNames = append(colNames, fmt.Sprintf("%v %s ?", colName, engine.dialect.EqStr()))
-				}
-				continue
-			} else if !fieldValue.IsValid() {
-				continue
-			} else {
-				// dereference ptr type to instance type
-				fieldValue = fieldValue.Elem()
-				fieldType = reflect.TypeOf(fieldValue.Interface())
-				requiredField = true
-			}
-		}
-
-		var val interface{}
-		switch fieldType.Kind() {
-		case reflect.Bool:
-			if allUseBool || requiredField {
-				val = fieldValue.Interface()
-			} else {
-				// if a bool in a struct, it will not be as a condition because it default is false,
-				// please use Where() instead
-				continue
-			}
-		case reflect.String:
-			if !requiredField && fieldValue.String() == "" {
-				continue
-			}
-			// for MyString, should convert to string or panic
-			if fieldType.String() != reflect.String.String() {
-				val = fieldValue.String()
-			} else {
-				val = fieldValue.Interface()
-			}
-		case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
-			if !requiredField && fieldValue.Int() == 0 {
-				continue
-			}
-			val = fieldValue.Interface()
-		case reflect.Float32, reflect.Float64:
-			if !requiredField && fieldValue.Float() == 0.0 {
-				continue
-			}
-			val = fieldValue.Interface()
-		case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
-			if !requiredField && fieldValue.Uint() == 0 {
-				continue
-			}
-			t := int64(fieldValue.Uint())
-			val = reflect.ValueOf(&t).Interface()
-		case reflect.Struct:
-			if fieldType.ConvertibleTo(core.TimeType) {
-				t := fieldValue.Convert(core.TimeType).Interface().(time.Time)
-				if !requiredField && (t.IsZero() || !fieldValue.IsValid()) {
-					continue
-				}
-				val = engine.FormatTime(col.SQLType.Name, t)
-			} else if _, ok := reflect.New(fieldType).Interface().(core.Conversion); ok {
-				continue
-			} else if valNul, ok := fieldValue.Interface().(driver.Valuer); ok {
-				val, _ = valNul.Value()
-				if val == nil {
-					continue
-				}
-			} else {
-				if col.SQLType.IsJson() {
-					if col.SQLType.IsText() {
-						bytes, err := json.Marshal(fieldValue.Interface())
-						if err != nil {
-							engine.logger.Error(err)
-							continue
-						}
-						val = string(bytes)
-					} else if col.SQLType.IsBlob() {
-						var bytes []byte
-						var err error
-						bytes, err = json.Marshal(fieldValue.Interface())
-						if err != nil {
-							engine.logger.Error(err)
-							continue
-						}
-						val = bytes
-					}
-				} else {
-					engine.autoMapType(fieldValue)
-					if table, ok := engine.Tables[fieldValue.Type()]; ok {
-						if len(table.PrimaryKeys) == 1 {
-							pkField := reflect.Indirect(fieldValue).FieldByName(table.PKColumns()[0].FieldName)
-							// fix non-int pk issues
-							//if pkField.Int() != 0 {
-							if pkField.IsValid() && !isZero(pkField.Interface()) {
-								val = pkField.Interface()
-							} else {
-								continue
-							}
-						} else {
-							//TODO: how to handler?
-							panic(fmt.Sprintln("not supported", fieldValue.Interface(), "as", table.PrimaryKeys))
-						}
-					} else {
-						val = fieldValue.Interface()
-					}
-				}
-			}
-		case reflect.Array, reflect.Slice, reflect.Map:
-			if fieldValue == reflect.Zero(fieldType) {
-				continue
-			}
-			if fieldValue.IsNil() || !fieldValue.IsValid() || fieldValue.Len() == 0 {
-				continue
-			}
-
-			if col.SQLType.IsText() {
-				bytes, err := json.Marshal(fieldValue.Interface())
-				if err != nil {
-					engine.logger.Error(err)
-					continue
-				}
-				val = string(bytes)
-			} else if col.SQLType.IsBlob() {
-				var bytes []byte
-				var err error
-				if (fieldType.Kind() == reflect.Array || fieldType.Kind() == reflect.Slice) &&
-					fieldType.Elem().Kind() == reflect.Uint8 {
-					if fieldValue.Len() > 0 {
-						val = fieldValue.Bytes()
-					} else {
-						continue
-					}
-				} else {
-					bytes, err = json.Marshal(fieldValue.Interface())
-					if err != nil {
-						engine.logger.Error(err)
-						continue
-					}
-					val = bytes
-				}
-			} else {
-				continue
-			}
-		default:
-			val = fieldValue.Interface()
-		}
-
-		args = append(args, val)
-		var condi string
-		if col.IsPrimaryKey && engine.dialect.DBType() == "ql" {
-			condi = "id() == ?"
-		} else {
-			condi = fmt.Sprintf("%v %s ?", colName, engine.dialect.EqStr())
-		}
-		colNames = append(colNames, condi)
 	}
-
-	return colNames, args
+	if forSelectStr && col.IsPrimaryKey && statement.Engine.Dialect().DBType() == "ql" {
+		colName = `id() AS ` + statement.Engine.Quote(col.Name)
+	} else {
+		if name != `` {
+			colName = statement.Engine.Quote(name) + `.` + statement.Engine.Quote(col.Name)
+		} else {
+			colName = statement.Engine.Quote(col.Name)
+		}
+	}
+	return colName
 }
 
 // TableName return current tableName
@@ -874,7 +669,7 @@ func (s *Statement) Select(str string) *Statement {
 func (statement *Statement) Cols(columns ...string) *Statement {
 	cols := col2NewCols(columns...)
 	for _, nc := range cols {
-		statement.columnMap[strings.ToLower(nc)] = true
+		statement.columnMap[nc] = true
 	}
 
 	newColumns := statement.col2NewColsWithQuote(columns...)
@@ -894,7 +689,7 @@ func (statement *Statement) AllCols() *Statement {
 func (statement *Statement) MustCols(columns ...string) *Statement {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.mustColumnMap[strings.ToLower(nc)] = true
+		statement.mustColumnMap[nc] = true
 	}
 	return statement
 }
@@ -913,7 +708,7 @@ func (statement *Statement) UseBool(columns ...string) *Statement {
 func (statement *Statement) Omit(columns ...string) {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.columnMap[strings.ToLower(nc)] = false
+		statement.columnMap[nc] = false
 	}
 	statement.OmitStr = statement.Engine.Quote(strings.Join(newColumns, statement.Engine.Quote(", ")))
 }
@@ -922,7 +717,7 @@ func (statement *Statement) Omit(columns ...string) {
 func (statement *Statement) Nullable(columns ...string) {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.nullableMap[strings.ToLower(nc)] = true
+		statement.nullableMap[nc] = true
 	}
 }
 
@@ -979,52 +774,6 @@ func (statement *Statement) Asc(colNames ...string) *Statement {
 // Join The joinOP should be one of INNER, LEFT OUTER, CROSS etc - this will be prepended to JOIN
 func (statement *Statement) Join(joinOP string, tablename interface{}, condition string, args ...interface{}) *Statement {
 	return statement.join(joinOP, tablename, condition, args...)
-	/*
-		var buf bytes.Buffer
-		if len(statement.JoinStr) > 0 {
-			fmt.Fprintf(&buf, "%v %v JOIN ", statement.JoinStr, joinOP)
-		} else {
-			fmt.Fprintf(&buf, "%v JOIN ", joinOP)
-		}
-
-		switch tablename.(type) {
-		case []string:
-			t := tablename.([]string)
-			if len(t) > 1 {
-				fmt.Fprintf(&buf, "%v AS %v", statement.Engine.Quote(t[0]), statement.Engine.Quote(t[1]))
-			} else if len(t) == 1 {
-				fmt.Fprintf(&buf, statement.Engine.Quote(t[0]))
-			}
-		case []interface{}:
-			t := tablename.([]interface{})
-			l := len(t)
-			var table string
-			if l > 0 {
-				f := t[0]
-				v := rValue(f)
-				t := v.Type()
-				if t.Kind() == reflect.String {
-					table = f.(string)
-				} else if t.Kind() == reflect.Struct {
-					r := statement.Engine.autoMapType(v)
-					table = r.Name
-				}
-			}
-			if l > 1 {
-				fmt.Fprintf(&buf, "%v AS %v", statement.Engine.Quote(table),
-					statement.Engine.Quote(fmt.Sprintf("%v", t[1])))
-			} else if l == 1 {
-				fmt.Fprintf(&buf, statement.Engine.Quote(table))
-			}
-		default:
-			fmt.Fprintf(&buf, statement.Engine.Quote(fmt.Sprintf("%v", tablename)))
-		}
-
-		fmt.Fprintf(&buf, " ON %v", condition)
-		statement.JoinStr = buf.String()
-		statement.joinArgs = args
-		return statement
-	*/
 }
 
 // GroupBy generate "Group By keys" statement
@@ -1046,41 +795,65 @@ func (statement *Statement) Unscoped() *Statement {
 }
 
 func (statement *Statement) genColumnStr() string {
+	if len(statement.selectStr) > 0 {
+		return statement.selectStr
+	}
+
+	if len(statement.ColumnStr) > 0 {
+		return statement.ColumnStr
+	}
+
+	if len(statement.GroupByStr) > 0 {
+		return statement.Engine.QuoteWithDelim(statement.GroupByStr, ",")
+	}
+
 	table := statement.RefTable
 	colNames := make([]string, 0)
-	for _, col := range table.Columns() {
-		if statement.OmitStr != "" {
-			if _, ok := statement.columnMap[strings.ToLower(col.Name)]; ok {
+
+	//主表的列
+	var alias string
+	needTableName := statement.needTableName()
+	if needTableName {
+		if statement.TableAlias != "" {
+			alias = statement.TableAlias
+		} else {
+			alias = statement.TableName()
+		}
+	}
+	statement.genColumns(table, alias, &colNames, needTableName)
+
+	//关联表的列
+	if statement.relation != nil {
+		for i, table := range statement.relation.Extends {
+			if i == 0 {
 				continue
 			}
-		}
-		if col.MapType == core.ONLYTODB {
-			continue
-		}
-
-		if statement.needTableName() {
-			var name string
-			if statement.TableAlias != "" {
-				name = statement.Engine.Quote(statement.TableAlias)
-			} else {
-				name = statement.Engine.Quote(statement.TableName())
-			}
-			name += "." + statement.Engine.Quote(col.Name)
-			if col.IsPrimaryKey && statement.Engine.Dialect().DBType() == "ql" {
-				colNames = append(colNames, "id() AS "+name)
-			} else {
-				colNames = append(colNames, name)
-			}
-		} else {
-			name := statement.Engine.Quote(col.Name)
-			if col.IsPrimaryKey && statement.Engine.Dialect().DBType() == "ql" {
-				colNames = append(colNames, "id() AS "+name)
-			} else {
-				colNames = append(colNames, name)
-			}
+			alias, _ := statement.relation.ExAlias[table.Name]
+			statement.genColumns(table, alias, &colNames, true)
 		}
 	}
 	return strings.Join(colNames, ", ")
+}
+
+func (statement *Statement) genColumns(table *core.Table, alias string, colNames *[]string, needTableName bool) {
+	hasOmitField := len(statement.OmitStr) > 0
+	for _, col := range table.Columns() {
+		if col.MapType == core.ONLYTODB {
+			continue
+		}
+		if hasOmitField {
+			lName := strings.ToLower(col.Name)
+			if get, ok := statement.columnMap[lName]; ok && !get {
+				continue
+			} else if alias != `` {
+				if get, ok := statement.columnMap[alias+`.`+lName]; ok && !get {
+					continue
+				}
+			}
+		}
+		name := statement.buildColName(col, alias, needTableName, true)
+		*colNames = append(*colNames, name)
+	}
 }
 
 func (statement *Statement) genCreateTableSQL() string {
@@ -1155,29 +928,7 @@ func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) 
 		statement.BeanArgs = args
 	}
 
-	var columnStr string = statement.ColumnStr
-	if len(statement.selectStr) > 0 {
-		columnStr = statement.selectStr
-	} else {
-		// TODO: always generate column names, not use * even if join
-		if statement.JoinStr() != "" {
-			if len(columnStr) == 0 {
-				if len(statement.GroupByStr) > 0 {
-					columnStr = statement.Engine.Quote(strings.Replace(statement.GroupByStr, ",", statement.Engine.Quote(","), -1))
-				} else {
-					columnStr = statement.genColumnStr()
-				}
-			}
-		} else {
-			if len(columnStr) == 0 {
-				if len(statement.GroupByStr) > 0 {
-					columnStr = statement.Engine.Quote(strings.Replace(statement.GroupByStr, ",", statement.Engine.Quote(","), -1))
-				} else {
-					columnStr = "*"
-				}
-			}
-		}
-	}
+	columnStr := statement.genColumnStr()
 
 	statement.attachInSql() // !admpub!  fix bug:Iterate func missing "... IN (...)"
 	return statement.genSelectSQL(columnStr), append(append(statement.joinArgs, statement.Params...), statement.BeanArgs...)
@@ -1205,8 +956,212 @@ func (s *Statement) genAddUniqueStr(uqeName string, cols []string) (string, []in
 }*/
 
 func (statement *Statement) buildConditions(table *core.Table, bean interface{}, includeVersion bool, includeUpdated bool, includeNil bool, includeAutoIncr bool, addedTableName bool) ([]string, []interface{}) {
-	return buildConditions(statement.Engine, table, bean, includeVersion, includeUpdated, includeNil, includeAutoIncr, statement.allUseBool, statement.useAllCols,
-		statement.unscoped, statement.mustColumnMap, statement.TableName(), statement.TableAlias, addedTableName)
+	engine := statement.Engine
+	var colNames []string
+	var args = make([]interface{}, 0)
+	for _, col := range table.Columns() {
+		if !includeVersion && col.IsVersion {
+			continue
+		}
+		if !includeUpdated && col.IsUpdated {
+			continue
+		}
+		if !includeAutoIncr && col.IsAutoIncrement {
+			continue
+		}
+
+		if engine.dialect.DBType() == core.MSSQL && col.SQLType.Name == core.Text {
+			continue
+		}
+		if col.SQLType.IsJson() {
+			continue
+		}
+
+		colName := statement.buildColName(col, statement.TableAlias, addedTableName, false)
+		fieldValuePtr, err := col.ValueOf(bean)
+		if err != nil {
+			engine.logger.Error(err)
+			continue
+		}
+
+		if col.IsDeleted && !statement.unscoped { // tag "deleted" is enabled
+			colNames = append(colNames, fmt.Sprintf("(%v IS NULL OR %v = '0001-01-01 00:00:00')",
+				colName, colName))
+		}
+
+		fieldValue := *fieldValuePtr
+		if fieldValue.Interface() == nil {
+			continue
+		}
+
+		fieldType := reflect.TypeOf(fieldValue.Interface())
+		requiredField := statement.useAllCols
+		if b, ok := statement.mustColumnMap[strings.ToLower(col.Name)]; ok {
+			if b {
+				requiredField = true
+			} else {
+				continue
+			}
+		}
+
+		if fieldType.Kind() == reflect.Ptr {
+			if fieldValue.IsNil() {
+				if includeNil {
+					args = append(args, nil)
+					colNames = append(colNames, fmt.Sprintf("%v %s ?", colName, engine.dialect.EqStr()))
+				}
+				continue
+			} else if !fieldValue.IsValid() {
+				continue
+			} else {
+				// dereference ptr type to instance type
+				fieldValue = fieldValue.Elem()
+				fieldType = reflect.TypeOf(fieldValue.Interface())
+				requiredField = true
+			}
+		}
+
+		var val interface{}
+		switch fieldType.Kind() {
+		case reflect.Bool:
+			if statement.allUseBool || requiredField {
+				val = fieldValue.Interface()
+			} else {
+				// if a bool in a struct, it will not be as a condition because it default is false,
+				// please use Where() instead
+				continue
+			}
+		case reflect.String:
+			if !requiredField && fieldValue.String() == "" {
+				continue
+			}
+			// for MyString, should convert to string or panic
+			if fieldType.String() != reflect.String.String() {
+				val = fieldValue.String()
+			} else {
+				val = fieldValue.Interface()
+			}
+		case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
+			if !requiredField && fieldValue.Int() == 0 {
+				continue
+			}
+			val = fieldValue.Interface()
+		case reflect.Float32, reflect.Float64:
+			if !requiredField && fieldValue.Float() == 0.0 {
+				continue
+			}
+			val = fieldValue.Interface()
+		case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
+			if !requiredField && fieldValue.Uint() == 0 {
+				continue
+			}
+			t := int64(fieldValue.Uint())
+			val = reflect.ValueOf(&t).Interface()
+		case reflect.Struct:
+			if fieldType.ConvertibleTo(core.TimeType) {
+				t := fieldValue.Convert(core.TimeType).Interface().(time.Time)
+				if !requiredField && (t.IsZero() || !fieldValue.IsValid()) {
+					continue
+				}
+				val = engine.FormatTime(col.SQLType.Name, t)
+			} else if _, ok := reflect.New(fieldType).Interface().(core.Conversion); ok {
+				continue
+			} else if valNul, ok := fieldValue.Interface().(driver.Valuer); ok {
+				val, _ = valNul.Value()
+				if val == nil {
+					continue
+				}
+			} else {
+				if col.SQLType.IsJson() {
+					if col.SQLType.IsText() {
+						bytes, err := json.Marshal(fieldValue.Interface())
+						if err != nil {
+							engine.logger.Error(err)
+							continue
+						}
+						val = string(bytes)
+					} else if col.SQLType.IsBlob() {
+						var bytes []byte
+						var err error
+						bytes, err = json.Marshal(fieldValue.Interface())
+						if err != nil {
+							engine.logger.Error(err)
+							continue
+						}
+						val = bytes
+					}
+				} else {
+					engine.autoMapType(fieldValue)
+					if table, ok := engine.Tables[fieldValue.Type()]; ok {
+						if len(table.PrimaryKeys) == 1 {
+							pkField := reflect.Indirect(fieldValue).FieldByName(table.PKColumns()[0].FieldName)
+							// fix non-int pk issues
+							//if pkField.Int() != 0 {
+							if pkField.IsValid() && !isZero(pkField.Interface()) {
+								val = pkField.Interface()
+							} else {
+								continue
+							}
+						} else {
+							//TODO: how to handler?
+							panic(fmt.Sprintln("not supported", fieldValue.Interface(), "as", table.PrimaryKeys))
+						}
+					} else {
+						val = fieldValue.Interface()
+					}
+				}
+			}
+		case reflect.Array, reflect.Slice, reflect.Map:
+			if fieldValue == reflect.Zero(fieldType) {
+				continue
+			}
+			if fieldValue.IsNil() || !fieldValue.IsValid() || fieldValue.Len() == 0 {
+				continue
+			}
+
+			if col.SQLType.IsText() {
+				bytes, err := json.Marshal(fieldValue.Interface())
+				if err != nil {
+					engine.logger.Error(err)
+					continue
+				}
+				val = string(bytes)
+			} else if col.SQLType.IsBlob() {
+				var bytes []byte
+				var err error
+				if (fieldType.Kind() == reflect.Array || fieldType.Kind() == reflect.Slice) &&
+					fieldType.Elem().Kind() == reflect.Uint8 {
+					if fieldValue.Len() > 0 {
+						val = fieldValue.Bytes()
+					} else {
+						continue
+					}
+				} else {
+					bytes, err = json.Marshal(fieldValue.Interface())
+					if err != nil {
+						engine.logger.Error(err)
+						continue
+					}
+					val = bytes
+				}
+			} else {
+				continue
+			}
+		default:
+			val = fieldValue.Interface()
+		}
+
+		args = append(args, val)
+		var condi string
+		if col.IsPrimaryKey && engine.dialect.DBType() == "ql" {
+			condi = "id() == ?"
+		} else {
+			condi = fmt.Sprintf("%v %s ?", colName, engine.dialect.EqStr())
+		}
+		colNames = append(colNames, condi)
+	}
+
+	return colNames, args
 }
 
 func (statement *Statement) genCountSql(bean interface{}) (string, []interface{}) {
@@ -1341,8 +1296,9 @@ func (statement *Statement) genSelectSQL(columnStr string) (a string) {
 func (statement *Statement) processIdParam() {
 	if statement.IdParam != nil {
 		if statement.Engine.dialect.DBType() != "ql" {
+			needTableName := statement.needTableName()
 			for i, col := range statement.RefTable.PKColumns() {
-				var colName = statement.colName(col, statement.TableName())
+				var colName = statement.colName(col, needTableName)
 				if i < len(*(statement.IdParam)) {
 					statement.And(fmt.Sprintf("%v %s ?", colName,
 						statement.Engine.dialect.EqStr()), (*(statement.IdParam))[i])
