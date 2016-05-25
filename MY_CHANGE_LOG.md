@@ -56,4 +56,5 @@ LEFT JOIN `webx_user` AS `User` ON User.id=Post.uid WHERE Post.id=2
 ```
 
  5. 增加大量原生SQL执行接口(详见coscms.go)。
+ 6. 增加查询结果为`[]map[string]string`和`[]map[string]interface{}`类型的数据
     
