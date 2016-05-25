@@ -436,30 +436,6 @@ func row2mapStr(rows *core.Rows, fields []string) (resultsMap map[string]string,
 	return result, nil
 }
 
-func txQuery2(tx *core.Tx, sqlStr string, params ...interface{}) (resultsSlice []map[string]string, err error) {
-	rows, err := tx.Query(sqlStr, params...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	return rows2Strings(rows)
-}
-
-func query2(db *core.DB, sqlStr string, params ...interface{}) (resultsSlice []map[string]string, err error) {
-	s, err := db.Prepare(sqlStr)
-	if err != nil {
-		return nil, err
-	}
-	defer s.Close()
-	rows, err := s.Query(params...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return rows2Strings(rows)
-}
-
 func setColumnTime(bean interface{}, col *core.Column, t time.Time) {
 	v, err := col.ValueOf(bean)
 	if err != nil {

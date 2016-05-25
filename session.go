@@ -2090,13 +2090,14 @@ func (session *Session) Query(sqlStr string, paramStr ...interface{}) (resultsSl
 // =============================
 // for string
 // =============================
-func (session *Session) query2(sqlStr string, paramStr ...interface{}) (resultsSlice []map[string]string, err error) {
-	session.queryPreprocess(&sqlStr, paramStr...)
-
-	if session.IsAutoCommit {
-		return query2(session.DB(), sqlStr, paramStr...)
+func (session *Session) queryStr(sqlStr string, paramStr ...interface{}) (result []map[string]string, err error) {
+	rows, err := session.queryRows(sqlStr, paramStr...)
+	if err != nil {
+		return nil, err
 	}
-	return txQuery2(session.Tx, sqlStr, paramStr...)
+	result, err = rows2Strings(rows)
+	rows.Close()
+	return
 }
 
 // Insert insert one or more beans

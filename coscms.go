@@ -82,49 +82,22 @@ func (r *ResultSet) SetByName(name string, value string) bool {
 // =====================================
 // 增加Session结构体中的方法
 // =====================================
-func (session *Session) Query2(sqlStr string, paramStr ...interface{}) ([]map[string]string, error) {
+func (session *Session) QueryStr(sqlStr string, paramStr ...interface{}) ([]map[string]string, error) {
 	defer session.resetStatement()
 	if session.IsAutoClose {
 		defer session.Close()
 	}
 
-	return session.query2(sqlStr, paramStr...)
+	return session.queryStr(sqlStr, paramStr...)
 }
 
-func (session *Session) queryRows(sqlStr string, paramStr ...interface{}) (rows *core.Rows, err error) {
-	session.queryPreprocess(&sqlStr, paramStr...)
-
-	if session.IsAutoCommit {
-		return session.innerQueryRows(session.DB(), sqlStr, paramStr...)
+func (session *Session) QueryRaw(sqlStr string, paramStr ...interface{}) ([]map[string]interface{}, error) {
+	defer session.resetStatement()
+	if session.IsAutoClose {
+		defer session.Close()
 	}
-	return session.txQueryRows(session.Tx, sqlStr, paramStr...)
-}
 
-func (session *Session) txQueryRows(tx *core.Tx, sqlStr string, params ...interface{}) (rows *core.Rows, err error) {
-	rows, err = tx.Query(sqlStr, params...)
-	if err != nil {
-		return nil, err
-	}
-	return
-}
-
-func (session *Session) innerQueryRows(db *core.DB, sqlStr string, params ...interface{}) (rows *core.Rows, err error) {
-	stmt, rows, err := session.Engine.logSQLQueryTime(sqlStr, params, func() (*core.Stmt, *core.Rows, error) {
-		stmt, err := db.Prepare(sqlStr)
-		if err != nil {
-			return stmt, nil, err
-		}
-		rows, err := stmt.Query(params...)
-
-		return stmt, rows, err
-	})
-	if stmt != nil {
-		stmt.Close()
-	}
-	if err != nil {
-		return nil, err
-	}
-	return
+	return session.queryInterface(sqlStr, paramStr...)
 }
 
 /**
@@ -191,6 +164,52 @@ func (session *Session) QCallback(callback func(*core.Rows, []string), sqlStr st
 	return
 }
 
+func (session *Session) queryInterface(sqlStr string, params ...interface{}) (result []map[string]interface{}, err error) {
+	rows, err := session.queryRows(sqlStr, params...)
+	if err != nil {
+		return nil, err
+	}
+	result, err = rows2MapInterface(rows)
+	rows.Close()
+	return
+}
+
+func (session *Session) queryRows(sqlStr string, paramStr ...interface{}) (rows *core.Rows, err error) {
+	session.queryPreprocess(&sqlStr, paramStr...)
+
+	if session.IsAutoCommit {
+		return session.innerQueryRows(session.DB(), sqlStr, paramStr...)
+	}
+	return session.txQueryRows(session.Tx, sqlStr, paramStr...)
+}
+
+func (session *Session) txQueryRows(tx *core.Tx, sqlStr string, params ...interface{}) (rows *core.Rows, err error) {
+	rows, err = tx.Query(sqlStr, params...)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (session *Session) innerQueryRows(db *core.DB, sqlStr string, params ...interface{}) (rows *core.Rows, err error) {
+	stmt, rows, err := session.Engine.logSQLQueryTime(sqlStr, params, func() (*core.Stmt, *core.Rows, error) {
+		stmt, err := db.Prepare(sqlStr)
+		if err != nil {
+			return stmt, nil, err
+		}
+		rows, err := stmt.Query(params...)
+
+		return stmt, rows, err
+	})
+	if stmt != nil {
+		stmt.Close()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
 // =====================================
 // 增加Engine结构体中的方法
 // =====================================
@@ -215,7 +234,7 @@ func (this *Engine) RawQueryKv(key string, val string, sql string, paramStr ...i
 	var results map[string]string = make(map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
 		var result map[string]string = make(map[string]string)
-		LineAllFieldsProcessing(rows, fields, func(data string, index int, fieldName string) {
+		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 			result[fieldName] = data
 		})
 		if k, ok := result[key]; ok {
@@ -234,7 +253,7 @@ func (this *Engine) RawQueryKeySlice(key string, sql string, paramStr ...interfa
 	var results map[string][]map[string]string = make(map[string][]map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
 		var result map[string]string = make(map[string]string)
-		LineAllFieldsProcessing(rows, fields, func(data string, index int, fieldName string) {
+		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 			result[fieldName] = data
 		})
 		if k, ok := result[key]; ok {
@@ -433,7 +452,7 @@ func (this *Engine) RawUpdate(table string, sets map[string]interface{}, where s
 	params := make([]interface{}, 0)
 	delim := ""
 	for k, v := range sets {
-		set += this.Quote(k) + "=?" + delim
+		set += delim + this.Quote(k) + "=?"
 		params = append(params, v)
 		delim = ","
 	}
@@ -478,7 +497,7 @@ func (this *Engine) RawQueryKvs(key string, sql string, paramStr ...interface{})
 	var results map[string]map[string]string = make(map[string]map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
 		var result map[string]string = make(map[string]string)
-		LineAllFieldsProcessing(rows, fields, func(data string, index int, fieldName string) {
+		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 			result[fieldName] = data
 		})
 		if k, ok := result[key]; ok {
@@ -498,7 +517,7 @@ func (this *Engine) RawQuerySlice(sql string, paramStr ...interface{}) []map[str
 	var results []map[string]string = make([]map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
 		var result map[string]string = make(map[string]string)
-		LineAllFieldsProcessing(rows, fields, func(data string, index int, fieldName string) {
+		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 			result[fieldName] = data
 		})
 		results = append(results, result)
@@ -580,7 +599,7 @@ func rows2ResultSetSlice(rows *core.Rows) (resultsSlice []*ResultSet, err error)
 func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err error) {
 	//result := make(map[string]string)
 	result = NewResultSet()
-	LineAllFieldsProcessing(rows, fields, func(data string, index int, fieldName string) {
+	StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 		//result[fieldName] = data
 		result.NameIndex[fieldName] = len(result.Fields)
 		result.Fields = append(result.Fields, fieldName)
@@ -590,8 +609,51 @@ func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err err
 	return result, nil
 }
 
-//获取一行中每一列数据
-func LineAllFieldsProcessing(rows *core.Rows, fields []string, fn func(data string, index int, fieldName string)) (err error) {
+func row2Interface(rows *core.Rows, fields []string) (result map[string]interface{}, err error) {
+	err = RowProcessing(rows, fields, func(rawValue reflect.Value, index int, fieldName string) error {
+		//if row is null then ignore
+		if rawValue.Interface() == nil {
+			return nil
+		}
+		result[fieldName] = rawValue.Interface()
+		return nil
+	})
+	return
+}
+
+func rows2MapInterface(rows *core.Rows) (result []map[string]interface{}, err error) {
+	fields, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		ret, err := row2Interface(rows, fields)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, ret)
+	}
+	return
+}
+
+//获取一行中每一列字符串数据
+func StrRowProcessing(rows *core.Rows, fields []string, fn func(data string, index int, fieldName string)) (err error) {
+	return RowProcessing(rows, fields, func(rawValue reflect.Value, index int, fieldName string) error {
+		//if row is null then ignore
+		if rawValue.Interface() == nil {
+			return nil
+		}
+		if data, err := value2String(&rawValue); err == nil {
+			fn(data, index, fieldName)
+		} else {
+			return err
+		}
+		return nil
+	})
+}
+
+//获取一行中每一列reflect.Value数据
+func RowProcessing(rows *core.Rows, fields []string, fn func(data reflect.Value, index int, fieldName string) error) (err error) {
 	length := len(fields)
 	scanResultContainers := make([]interface{}, length)
 	for i := 0; i < length; i++ {
@@ -603,15 +665,7 @@ func LineAllFieldsProcessing(rows *core.Rows, fields []string, fn func(data stri
 	}
 	for ii, key := range fields {
 		rawValue := reflect.Indirect(reflect.ValueOf(scanResultContainers[ii]))
-		//if row is null then ignore
-		if rawValue.Interface() == nil {
-			continue
-		}
-		if data, err := value2String(&rawValue); err == nil {
-			fn(data, ii, key)
-		} else {
-			return err
-		}
+		fn(rawValue, ii, key)
 	}
 	return nil
 }
