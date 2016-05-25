@@ -3,8 +3,10 @@ package xorm
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/coscms/xorm/core"
 )
@@ -21,7 +23,7 @@ func (this SelectRows) GetRow() (result *ResultSet) {
 func (this SelectRows) GetOne() (result string) {
 	results := this.GetRow()
 	if results != nil {
-		result = results.Get(0)
+		result = results.GetString(0)
 	}
 	return
 }
@@ -32,7 +34,7 @@ func (this SelectRows) GetOne() (result string) {
 func NewResultSet() *ResultSet {
 	return &ResultSet{
 		Fields:    make([]string, 0),
-		Values:    make([]string, 0),
+		Values:    make([]*reflect.Value, 0),
 		NameIndex: make(map[string]int),
 		Length:    0,
 	}
@@ -40,40 +42,134 @@ func NewResultSet() *ResultSet {
 
 type ResultSet struct {
 	Fields    []string
-	Values    []string
+	Values    []*reflect.Value
 	NameIndex map[string]int
 	Length    int
 }
 
-func (r *ResultSet) Get(index int) string {
+func (r *ResultSet) Get(index int) interface{} {
+	if index >= r.Length {
+		return nil
+	}
+	return (*r.Values[index]).Interface()
+}
+
+func (r *ResultSet) GetByName(name string) interface{} {
+	if index, ok := r.NameIndex[name]; ok {
+		return r.Get(index)
+	}
+	return nil
+}
+
+func (r *ResultSet) GetString(index int) string {
 	if index >= r.Length {
 		return ""
 	}
-	return r.Values[index]
+	str, err := reflect2value(r.Values[index])
+	if err != nil {
+		log.Println(err)
+	}
+	return str
 }
 
-func (r *ResultSet) GetByName(name string) string {
+func (r *ResultSet) GetStringByName(name string) string {
 	if index, ok := r.NameIndex[name]; ok {
-		return r.Get(index)
+		return r.GetString(index)
 	}
 	return ""
 }
 
-func (r *ResultSet) Set(index int, value string) bool {
+func (r *ResultSet) GetInt64(index int) int64 {
+	if index >= r.Length {
+		return 0
+	}
+	return (*r.Values[index]).Int()
+}
+
+func (r *ResultSet) GetInt64ByName(name string) int64 {
+	if index, ok := r.NameIndex[name]; ok {
+		return r.GetInt64(index)
+	}
+	return 0
+}
+
+func (r *ResultSet) GetInt(index int) int {
+	return int(r.GetInt64(index))
+}
+
+func (r *ResultSet) GetIntByName(name string) int {
+	return int(r.GetInt64ByName(name))
+}
+
+func (r *ResultSet) GetFloat64(index int) float64 {
+	if index >= r.Length {
+		return 0
+	}
+	return (*r.Values[index]).Float()
+}
+
+func (r *ResultSet) GetFloat64ByName(name string) float64 {
+	if index, ok := r.NameIndex[name]; ok {
+		return r.GetFloat64(index)
+	}
+	return 0
+}
+
+func (r *ResultSet) GetFloat32(index int) float32 {
+	return float32(r.GetFloat64(index))
+}
+
+func (r *ResultSet) GetFloat32ByName(name string) float32 {
+	return float32(r.GetFloat64ByName(name))
+}
+
+func (r *ResultSet) GetBool(index int) bool {
 	if index >= r.Length {
 		return false
 	}
-	r.Values[index] = value
+	return (*r.Values[index]).Bool()
+}
+
+func (r *ResultSet) GetBoolByName(name string) bool {
+	if index, ok := r.NameIndex[name]; ok {
+		return r.GetBool(index)
+	}
+	return false
+}
+
+func (r *ResultSet) GetTime(index int) time.Time {
+	var t time.Time
+	if v := r.Get(index); v != nil {
+		t, _ = v.(time.Time)
+	}
+	return t
+}
+
+func (r *ResultSet) GetTimeByName(name string) time.Time {
+	var t time.Time
+	if index, ok := r.NameIndex[name]; ok {
+		t = r.GetTime(index)
+	}
+	return t
+}
+
+func (r *ResultSet) Set(index int, value interface{}) bool {
+	if index >= r.Length {
+		return false
+	}
+	rawValue := reflect.Indirect(reflect.ValueOf(value))
+	r.Values[index] = &rawValue
 	return true
 }
 
-func (r *ResultSet) SetByName(name string, value string) bool {
+func (r *ResultSet) SetByName(name string, value interface{}) bool {
 	if index, ok := r.NameIndex[name]; ok {
 		return r.Set(index, value)
 	} else {
 		r.NameIndex[name] = len(r.Values)
 		r.Fields = append(r.Fields, name)
-		r.Values = append(r.Values, value)
+		rawValue := reflect.Indirect(reflect.ValueOf(value))
+		r.Values = append(r.Values, &rawValue)
 		r.Length = len(r.Values)
 	}
 	return true
@@ -321,7 +417,7 @@ func (this *Engine) GetRow(sql string, params ...interface{}) (result *ResultSet
 func (this *Engine) GetOne(sql string, params ...interface{}) (result string) {
 	results := this.GetRow(sql, params...)
 	if results != nil {
-		result = results.Get(0)
+		result = results.GetString(0)
 	}
 	return
 }
@@ -629,23 +725,27 @@ func rows2ResultSetSlice(rows *core.Rows) (resultsSlice []*ResultSet, err error)
 func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err error) {
 	//result := make(map[string]string)
 	result = NewResultSet()
-	StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
-		//result[fieldName] = data
+	err = RowProcessing(rows, fields, func(rawValue *reflect.Value, index int, fieldName string) error {
+		//if row is null then ignore
+		if (*rawValue).Interface() == nil {
+			return nil
+		}
 		result.NameIndex[fieldName] = len(result.Fields)
 		result.Fields = append(result.Fields, fieldName)
-		result.Values = append(result.Values, data)
+		result.Values = append(result.Values, rawValue)
+		return nil
 	})
 	result.Length = len(result.Values)
-	return result, nil
+	return result, err
 }
 
 func row2Interface(rows *core.Rows, fields []string) (result map[string]interface{}, err error) {
-	err = RowProcessing(rows, fields, func(rawValue reflect.Value, index int, fieldName string) error {
+	err = RowProcessing(rows, fields, func(rawValue *reflect.Value, index int, fieldName string) error {
 		//if row is null then ignore
-		if rawValue.Interface() == nil {
+		if (*rawValue).Interface() == nil {
 			return nil
 		}
-		result[fieldName] = rawValue.Interface()
+		result[fieldName] = (*rawValue).Interface()
 		return nil
 	})
 	return
@@ -668,12 +768,12 @@ func rows2MapInterface(rows *core.Rows) (result []map[string]interface{}, err er
 
 //获取一行中每一列字符串数据
 func StrRowProcessing(rows *core.Rows, fields []string, fn func(data string, index int, fieldName string)) (err error) {
-	return RowProcessing(rows, fields, func(rawValue reflect.Value, index int, fieldName string) error {
+	return RowProcessing(rows, fields, func(rawValue *reflect.Value, index int, fieldName string) error {
 		//if row is null then ignore
-		if rawValue.Interface() == nil {
+		if (*rawValue).Interface() == nil {
 			return nil
 		}
-		if data, err := value2String(&rawValue); err == nil {
+		if data, err := value2String(rawValue); err == nil {
 			fn(data, index, fieldName)
 		} else {
 			return err
@@ -683,7 +783,7 @@ func StrRowProcessing(rows *core.Rows, fields []string, fn func(data string, ind
 }
 
 //获取一行中每一列reflect.Value数据
-func RowProcessing(rows *core.Rows, fields []string, fn func(data reflect.Value, index int, fieldName string) error) (err error) {
+func RowProcessing(rows *core.Rows, fields []string, fn func(data *reflect.Value, index int, fieldName string) error) (err error) {
 	length := len(fields)
 	scanResultContainers := make([]interface{}, length)
 	for i := 0; i < length; i++ {
@@ -695,7 +795,7 @@ func RowProcessing(rows *core.Rows, fields []string, fn func(data reflect.Value,
 	}
 	for ii, key := range fields {
 		rawValue := reflect.Indirect(reflect.ValueOf(scanResultContainers[ii]))
-		fn(rawValue, ii, key)
+		fn(&rawValue, ii, key)
 	}
 	return nil
 }
