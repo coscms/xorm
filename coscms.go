@@ -213,6 +213,30 @@ func (session *Session) innerQueryRows(db *core.DB, sqlStr string, params ...int
 // =====================================
 // 增加Engine结构体中的方法
 // =====================================
+
+func (this *Engine) QueryStr(sql string, paramStr ...interface{}) []map[string]string {
+	session := this.NewSession()
+	defer session.Close()
+	result, err := session.QueryStr(sql, paramStr...)
+	if err != nil {
+		this.TagLogError("base", err)
+	}
+	return result
+}
+
+func (this *Engine) QueryRaw(sql string, paramStr ...interface{}) []map[string]interface{} {
+	session := this.NewSession()
+	defer session.Close()
+	result, err := session.QueryRaw(sql, paramStr...)
+	if err != nil {
+		this.TagLogError("base", err)
+	}
+	return result
+}
+
+// =======================
+// 原生SQL查询
+// =======================
 func (this *Engine) RawQuery(sql string, paramStr ...interface{}) (resultsSlice []*ResultSet, err error) {
 	session := this.NewSession()
 	defer session.Close()
@@ -249,7 +273,7 @@ func (this *Engine) RawQueryKv(key string, val string, sql string, paramStr ...i
 	return results
 }
 
-func (this *Engine) RawQueryKeySlice(key string, sql string, paramStr ...interface{}) map[string][]map[string]string {
+func (this *Engine) RawQueryKeys(key string, sql string, paramStr ...interface{}) map[string][]map[string]string {
 	var results map[string][]map[string]string = make(map[string][]map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
 		var result map[string]string = make(map[string]string)
@@ -269,9 +293,9 @@ func (this *Engine) RawQueryKeySlice(key string, sql string, paramStr ...interfa
 	return results
 }
 
-// =======================
-// 原生SQL查询
-// =======================
+// -----------------------
+// ResultSet结果
+// -----------------------
 func (this *Engine) GetRows(sql string, params ...interface{}) []*ResultSet {
 	sql = this.ReplaceTablePrefix(sql)
 	result, err := this.RawQuery(sql, params...)
@@ -302,46 +326,6 @@ func (this *Engine) GetOne(sql string, params ...interface{}) (result string) {
 	return
 }
 
-func (this *Engine) RawFetchAll(fields string, table string, where string, params ...interface{}) []map[string]string {
-	if fields == "" {
-		fields = "*"
-	} else {
-		fields = this.ReplaceTablePrefix(fields)
-	}
-	sql := `SELECT ` + fields + ` FROM ` + this.fullTableName(table) + ` WHERE ` + this.ReplaceTablePrefix(where)
-	if len(params) == 1 {
-		switch params[0].(type) {
-		case []interface{}:
-			return this.RawQuerySlice(sql, params[0].([]interface{})...)
-		}
-	}
-	return this.RawQuerySlice(sql, params...)
-}
-
-func (this *Engine) RawFetch(fields string, table string, where string, params ...interface{}) (result map[string]string) {
-	if fields == "" {
-		fields = "*"
-	} else {
-		fields = this.ReplaceTablePrefix(fields)
-	}
-	sql := `SELECT ` + fields + ` FROM ` + this.fullTableName(table) + ` WHERE ` + this.ReplaceTablePrefix(where) + ` LIMIT 1`
-	if len(params) == 1 {
-		switch params[0].(type) {
-		case []interface{}:
-			results := this.RawQuerySlice(sql, params[0].([]interface{})...)
-			if len(results) > 0 {
-				result = results[0]
-			}
-			return
-		}
-	}
-	results := this.RawQuerySlice(sql, params...)
-	if len(results) > 0 {
-		result = results[0]
-	}
-	return
-}
-
 // RawSelect("*","member","id=?",1)
 // RawSelect("*","member","status=? AND sex=?",1,1)
 // RawSelect("*","`~member` a,`~order` b","a.status=? AND b.status=?",1,1)
@@ -361,6 +345,93 @@ func (this *Engine) RawSelect(fields string, table string, where string, params 
 	return SelectRows(this.GetRows(sql, params...))
 }
 
+// -----------------------
+// map结果
+// -----------------------
+func (this *Engine) RawFetchAll(fields string, table string, where string, params ...interface{}) []map[string]string {
+	if fields == "" {
+		fields = "*"
+	} else {
+		fields = this.ReplaceTablePrefix(fields)
+	}
+	sql := `SELECT ` + fields + ` FROM ` + this.fullTableName(table) + ` WHERE ` + this.ReplaceTablePrefix(where)
+	if len(params) == 1 {
+		switch params[0].(type) {
+		case []interface{}:
+			return this.RawQueryStr(sql, params[0].([]interface{})...)
+		}
+	}
+	return this.RawQueryStr(sql, params...)
+}
+
+func (this *Engine) RawFetch(fields string, table string, where string, params ...interface{}) (result map[string]string) {
+	if fields == "" {
+		fields = "*"
+	} else {
+		fields = this.ReplaceTablePrefix(fields)
+	}
+	sql := `SELECT ` + fields + ` FROM ` + this.fullTableName(table) + ` WHERE ` + this.ReplaceTablePrefix(where) + ` LIMIT 1`
+	if len(params) == 1 {
+		switch params[0].(type) {
+		case []interface{}:
+			results := this.RawQueryStr(sql, params[0].([]interface{})...)
+			if len(results) > 0 {
+				result = results[0]
+			}
+			return
+		}
+	}
+	results := this.RawQueryStr(sql, params...)
+	if len(results) > 0 {
+		result = results[0]
+	}
+	return
+}
+
+/**
+ * 查询基于指定字段值为键名的map
+ */
+func (this *Engine) RawQueryKvs(key string, sql string, paramStr ...interface{}) map[string]map[string]string {
+	if key == "" {
+		key = "id"
+	}
+	var results map[string]map[string]string = make(map[string]map[string]string, 0)
+	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
+		var result map[string]string = make(map[string]string)
+		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
+			result[fieldName] = data
+		})
+		if k, ok := result[key]; ok {
+			results[k] = result
+		}
+	}, sql, paramStr...)
+	if err != nil {
+		this.TagLogError("base", err)
+	}
+	return results
+}
+
+/**
+ * 查询[]map[string]string
+ */
+func (this *Engine) RawQueryStr(sql string, paramStr ...interface{}) []map[string]string {
+	var results []map[string]string = make([]map[string]string, 0)
+	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
+		var result map[string]string = make(map[string]string)
+		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
+			result[fieldName] = data
+		})
+		results = append(results, result)
+	}, sql, paramStr...)
+	if err != nil {
+		this.TagLogError("base", err)
+	}
+	return results
+}
+
+// -----------------------
+// 写操作
+// -----------------------
 func (this *Engine) RawInsert(table string, sets map[string]interface{}) (lastId int64) {
 	fields := ""
 	values := ""
@@ -485,47 +556,6 @@ func (this *Engine) RawDelete(table string, where string, params ...interface{})
 		}
 	}
 	return this.RawExec(sql, false, params...)
-}
-
-/**
- * 查询基于指定字段值为键名的map
- */
-func (this *Engine) RawQueryKvs(key string, sql string, paramStr ...interface{}) map[string]map[string]string {
-	if key == "" {
-		key = "id"
-	}
-	var results map[string]map[string]string = make(map[string]map[string]string, 0)
-	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
-		var result map[string]string = make(map[string]string)
-		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
-			result[fieldName] = data
-		})
-		if k, ok := result[key]; ok {
-			results[k] = result
-		}
-	}, sql, paramStr...)
-	if err != nil {
-		this.TagLogError("base", err)
-	}
-	return results
-}
-
-/**
- * 查询[]map[string]string
- */
-func (this *Engine) RawQuerySlice(sql string, paramStr ...interface{}) []map[string]string {
-	var results []map[string]string = make([]map[string]string, 0)
-	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
-		var result map[string]string = make(map[string]string)
-		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
-			result[fieldName] = data
-		})
-		results = append(results, result)
-	}, sql, paramStr...)
-	if err != nil {
-		this.TagLogError("base", err)
-	}
-	return results
 }
 
 func (this *Engine) RawExec(sql string, retId bool, params ...interface{}) (affected int64) {
