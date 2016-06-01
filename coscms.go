@@ -80,10 +80,20 @@ func (r *ResultSet) GetStringByName(name string) string {
 }
 
 func (r *ResultSet) GetInt64(index int) int64 {
-	if index >= r.Length {
+	v := r.Get(index)
+	if v == nil {
 		return 0
 	}
-	return (*r.Values[index]).Int()
+	if val, ok := v.(int64); ok {
+		return val
+	}
+	if val, ok := v.(float64); ok {
+		return int64(val)
+	}
+	if val, ok := v.(int); ok {
+		return int64(val)
+	}
+	return 0
 }
 
 func (r *ResultSet) GetInt64ByName(name string) int64 {
@@ -102,10 +112,17 @@ func (r *ResultSet) GetIntByName(name string) int {
 }
 
 func (r *ResultSet) GetFloat64(index int) float64 {
-	if index >= r.Length {
+	v := r.Get(index)
+	if v == nil {
 		return 0
 	}
-	return (*r.Values[index]).Float()
+	if val, ok := v.(float64); ok {
+		return val
+	}
+	if val, ok := v.(float32); ok {
+		return float64(val)
+	}
+	return 0
 }
 
 func (r *ResultSet) GetFloat64ByName(name string) float64 {
@@ -124,10 +141,14 @@ func (r *ResultSet) GetFloat32ByName(name string) float32 {
 }
 
 func (r *ResultSet) GetBool(index int) bool {
-	if index >= r.Length {
+	v := r.Get(index)
+	if v == nil {
 		return false
 	}
-	return (*r.Values[index]).Bool()
+	if val, ok := v.(bool); ok {
+		return val
+	}
+	return false
 }
 
 func (r *ResultSet) GetBoolByName(name string) bool {
