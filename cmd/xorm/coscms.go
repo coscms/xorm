@@ -18,3 +18,14 @@ func tagForCoscms(table *core.Table, col *core.Column) string {
 	}
 	return tag(table, col)
 }
+
+type ReverseConfig struct {
+	Engine    string `json:engine`
+	Dsn       string `json:"dsn"`
+	MultiFile bool   `json:multiFile`
+	Lang      string `json:"lang"`
+	PkgName   string `json:"pkgName"`
+	GenJson   bool   `json:"genJson"`
+	Prefix    string `json:"prefix"`
+	Template  string `json:"template"`
+}
