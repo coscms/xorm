@@ -1,10 +1,12 @@
 package main
 
 import (
-	"github.com/coscms/xorm/core"
 	"io/ioutil"
 	"strings"
 	"text/template"
+
+	"github.com/admpub/log"
+	"github.com/coscms/xorm/core"
 )
 
 type LangTmpl struct {
@@ -24,6 +26,7 @@ var (
 func loadConfig(f string) map[string]string {
 	bts, err := ioutil.ReadFile(f)
 	if err != nil {
+		log.Error(err)
 		return nil
 	}
 	configs := make(map[string]string)
