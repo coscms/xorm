@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
 
-	"github.com/coscms/xorm/core"
+	"github.com/admpub/log"
 	"github.com/coscms/xorm"
-	"github.com/coscms/xweb/log"
+	"github.com/coscms/xorm/core"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -100,12 +99,10 @@ func runReverse(cmd *Command, args []string) {
 			return
 		}
 
-		//[SWH|+] 经测试，path.Base不能解析windows下的“\”，需要替换为“/”
-		genDir = strings.Replace(genDir, "\\", "/", -1)
-		model = path.Base(genDir)
+		model = filepath.Base(genDir)
 	} else {
 		model = "model"
-		genDir = path.Join(curPath, model)
+		genDir = filepath.Join(curPath, model)
 	}
 
 	dir, err := filepath.Abs(args[2])
@@ -122,9 +119,9 @@ func runReverse(cmd *Command, args []string) {
 	var langTmpl LangTmpl
 	var ok bool
 	var lang string = "go"
-	var prefix string = "" //[SWH|+]
+	var prefix string
 
-	cfgPath := path.Join(dir, "config")
+	cfgPath := filepath.Join(dir, "config")
 	info, err := os.Stat(cfgPath)
 	var configs map[string]string
 	if err == nil && !info.IsDir() {
@@ -188,10 +185,10 @@ func runReverse(cmd *Command, args []string) {
 		var w *os.File
 		fileName := info.Name()
 		newFileName := fileName[:len(fileName)-4]
-		ext := path.Ext(newFileName)
+		ext := filepath.Ext(newFileName)
 
 		if !isMultiFile {
-			w, err = os.Create(path.Join(genDir, newFileName))
+			w, err = os.Create(filepath.Join(genDir, newFileName))
 			if err != nil {
 				log.Errorf("%v", err)
 				return err
@@ -245,7 +242,7 @@ func runReverse(cmd *Command, args []string) {
 				tbs := []*core.Table{table}
 				imports := langTmpl.GenImports(tbs)
 
-				w, err := os.Create(path.Join(genDir, unTitle(mapper.Table2Obj(table.Name))+ext))
+				w, err := os.Create(filepath.Join(genDir, unTitle(mapper.Table2Obj(table.Name))+ext))
 				if err != nil {
 					log.Errorf("%v", err)
 					return err
