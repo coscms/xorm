@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -115,6 +116,10 @@ func (r *ResultSet) GetFloat64(index int) float64 {
 	v := r.Get(index)
 	if v == nil {
 		return 0
+	}
+	if val, ok := v.([]uint8); ok {
+		r, _ := strconv.ParseFloat(string(val), 64)
+		return r
 	}
 	if val, ok := v.(float64); ok {
 		return val
@@ -761,6 +766,7 @@ func row2ResultSet(rows *core.Rows, fields []string) (result *ResultSet, err err
 }
 
 func row2Interface(rows *core.Rows, fields []string) (result map[string]interface{}, err error) {
+	result = make(map[string]interface{})
 	err = RowProcessing(rows, fields, func(rawValue *reflect.Value, index int, fieldName string) error {
 		//if row is null then ignore
 		if (*rawValue).Interface() == nil {
