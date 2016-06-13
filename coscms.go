@@ -395,7 +395,7 @@ func (this *Engine) RawQueryKv(key string, val string, sql string, paramStr ...i
 	return results
 }
 
-func (this *Engine) RawQueryKeys(key string, sql string, paramStr ...interface{}) map[string][]map[string]string {
+func (this *Engine) RawQueryAllKvs(key string, sql string, paramStr ...interface{}) map[string][]map[string]string {
 	var results map[string][]map[string]string = make(map[string][]map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
 		var result map[string]string = make(map[string]string)
