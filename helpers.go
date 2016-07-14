@@ -148,6 +148,10 @@ func isZero(k interface{}) bool {
 }
 
 func isStructZero(v reflect.Value) bool {
+	if !v.IsValid() {
+		return true
+	}
+
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 		switch field.Kind() {
@@ -434,6 +438,45 @@ func row2mapStr(rows *core.Rows, fields []string) (resultsMap map[string]string,
 		}
 	}
 	return result, nil
+}
+
+func txQuery2(tx *core.Tx, sqlStr string, params ...interface{}) (resultsSlice []map[string]string, err error) {
+	rows, err := tx.Query(sqlStr, params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return rows2Strings(rows)
+}
+
+func query2(db *core.DB, sqlStr string, params ...interface{}) (resultsSlice []map[string]string, err error) {
+	s, err := db.Prepare(sqlStr)
+	if err != nil {
+		return nil, err
+	}
+	defer s.Close()
+	rows, err := s.Query(params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return rows2Strings(rows)
+}
+
+func setColumnInt(bean interface{}, col *core.Column, t int64) {
+	v, err := col.ValueOf(bean)
+	if err != nil {
+		return
+	}
+	if v.CanSet() {
+		switch v.Type().Kind() {
+		case reflect.Int, reflect.Int64, reflect.Int32:
+			v.SetInt(t)
+		case reflect.Uint, reflect.Uint64, reflect.Uint32:
+			v.SetUint(uint64(t))
+		}
+	}
 }
 
 func setColumnTime(bean interface{}, col *core.Column, t time.Time) {

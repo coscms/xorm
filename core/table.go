@@ -7,13 +7,12 @@ import (
 
 // database table
 type Table struct {
-	Name       string
-	Type       reflect.Type
-	columnsSeq []string
+	Name          string
+	Type          reflect.Type
+	columnsSeq    []string
 
 	// 表字段名称或对应的列信息(支持多个相同名称的字段)
-	columnsMap map[string][]*Column
-
+	columnsMap    map[string][]*Column
 	columns       []*Column
 	Indexes       map[string]*Index
 	PrimaryKeys   []string

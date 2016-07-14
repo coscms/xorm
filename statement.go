@@ -58,6 +58,7 @@ type Statement struct {
 	OmitStr         string
 	ConditionStr    string
 	AltTableName    string
+	tableName       string
 	RawSQL          string
 	RawParams       []interface{}
 	UseCascade      bool
@@ -105,6 +106,7 @@ func (statement *Statement) Init() {
 	statement.columnMap = make(map[string]bool)
 	statement.ConditionStr = ""
 	statement.AltTableName = ""
+	statement.tableName = ""
 	statement.IdParam = nil
 	statement.RawSQL = ""
 	statement.RawParams = make([]interface{}, 0)
@@ -198,6 +200,11 @@ func (statement *Statement) Or(querystring string, args ...interface{}) *Stateme
 	return statement
 }
 
+func (statement *Statement) setRefValue(v reflect.Value) {
+	statement.RefTable = statement.Engine.autoMapType(v)
+	statement.tableName = statement.Engine.tbName(v)
+}
+
 // Table tempororily set table name, the parameter could be a string or a pointer of struct
 func (statement *Statement) Table(tableNameOrBean interface{}) *Statement {
 	v := rValue(tableNameOrBean)
@@ -206,6 +213,7 @@ func (statement *Statement) Table(tableNameOrBean interface{}) *Statement {
 		statement.AltTableName = tableNameOrBean.(string)
 	} else if t.Kind() == reflect.Struct {
 		statement.RefTable = statement.Engine.autoMapType(v)
+		statement.AltTableName = statement.Engine.tbName(v)
 	}
 	return statement
 }
@@ -483,10 +491,7 @@ func (statement *Statement) TableName() string {
 		return statement.AltTableName
 	}
 
-	if statement.RefTable != nil {
-		return statement.Engine.dialect.TableName(statement.RefTable.Name)
-	}
-	return ""
+	return statement.tableName
 }
 
 // Id generate "where id = ? " statment or for composite key "where key1 = ? and key2 = ?"
@@ -669,7 +674,7 @@ func (s *Statement) Select(str string) *Statement {
 func (statement *Statement) Cols(columns ...string) *Statement {
 	cols := col2NewCols(columns...)
 	for _, nc := range cols {
-		statement.columnMap[nc] = true
+		statement.columnMap[strings.ToLower(nc)] = true
 	}
 
 	newColumns := statement.col2NewColsWithQuote(columns...)
@@ -689,7 +694,7 @@ func (statement *Statement) AllCols() *Statement {
 func (statement *Statement) MustCols(columns ...string) *Statement {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.mustColumnMap[nc] = true
+		statement.mustColumnMap[strings.ToLower(nc)] = true
 	}
 	return statement
 }
@@ -708,7 +713,7 @@ func (statement *Statement) UseBool(columns ...string) *Statement {
 func (statement *Statement) Omit(columns ...string) {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.columnMap[nc] = false
+		statement.columnMap[strings.ToLower(nc)] = false
 	}
 	statement.OmitStr = statement.Engine.Quote(strings.Join(newColumns, statement.Engine.Quote(", ")))
 }
@@ -717,7 +722,7 @@ func (statement *Statement) Omit(columns ...string) {
 func (statement *Statement) Nullable(columns ...string) {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.nullableMap[nc] = true
+		statement.nullableMap[strings.ToLower(nc)] = true
 	}
 }
 
@@ -857,17 +862,17 @@ func (statement *Statement) genColumns(table *core.Table, alias string, colNames
 }
 
 func (statement *Statement) genCreateTableSQL() string {
-	return statement.Engine.dialect.CreateTableSql(statement.RefTable, statement.AltTableName,
+	return statement.Engine.dialect.CreateTableSql(statement.RefTable, statement.TableName(),
 		statement.StoreEngine, statement.Charset)
 }
 
 func (s *Statement) genIndexSQL() []string {
-	var sqls []string = make([]string, 0)
+	var sqls []string
 	tbName := s.TableName()
 	quote := s.Engine.Quote
 	for idxName, index := range s.RefTable.Indexes {
 		if index.Type == core.IndexType {
-			sql := fmt.Sprintf("CREATE INDEX %v ON %v (%v);", quote(indexName(s.RefTable.Name, idxName)),
+			sql := fmt.Sprintf("CREATE INDEX %v ON %v (%v);", quote(indexName(tbName, idxName)),
 				quote(tbName), quote(strings.Join(index.Cols, quote(","))))
 			sqls = append(sqls, sql)
 		}
@@ -880,10 +885,11 @@ func uniqueName(tableName, uqeName string) string {
 }
 
 func (s *Statement) genUniqueSQL() []string {
-	var sqls []string = make([]string, 0)
+	var sqls []string
+	tbName := s.TableName()
 	for _, index := range s.RefTable.Indexes {
 		if index.Type == core.UniqueType {
-			sql := s.Engine.dialect.CreateIndexSql(s.RefTable.Name, index)
+			sql := s.Engine.dialect.CreateIndexSql(tbName, index)
 			sqls = append(sqls, sql)
 		}
 	}
@@ -891,13 +897,14 @@ func (s *Statement) genUniqueSQL() []string {
 }
 
 func (s *Statement) genDelIndexSQL() []string {
-	var sqls []string = make([]string, 0)
+	var sqls []string
+	tbName := s.TableName()
 	for idxName, index := range s.RefTable.Indexes {
 		var rIdxName string
 		if index.Type == core.UniqueType {
-			rIdxName = uniqueName(s.RefTable.Name, idxName)
+			rIdxName = uniqueName(tbName, idxName)
 		} else if index.Type == core.IndexType {
-			rIdxName = indexName(s.RefTable.Name, idxName)
+			rIdxName = indexName(tbName, idxName)
 		}
 		sql := fmt.Sprintf("DROP INDEX %v", s.Engine.Quote(rIdxName))
 		if s.Engine.dialect.IndexOnTable() {
@@ -909,16 +916,9 @@ func (s *Statement) genDelIndexSQL() []string {
 }
 
 func (statement *Statement) genGetSql(bean interface{}) (string, []interface{}) {
-	var table *core.Table
-	if statement.RefTable == nil {
-		table = statement.Engine.TableInfo(bean)
-		statement.RefTable = table
-	} else {
-		table = statement.RefTable
-	}
+	statement.setRefValue(rValue(bean))
 
-	statement.SetRelation(table.Relation) //[SWH|+]
-
+	var table = statement.RefTable
 	var addedTableName = (len(statement.JoinStr()) > 0)
 
 	if !statement.noAutoCondition {
@@ -1165,13 +1165,12 @@ func (statement *Statement) buildConditions(table *core.Table, bean interface{},
 }
 
 func (statement *Statement) genCountSql(bean interface{}) (string, []interface{}) {
-	table := statement.Engine.TableInfo(bean)
-	statement.RefTable = table
-	statement.SetRelation(table.Relation) //[SWH|+]
+	statement.setRefValue(rValue(bean))
+	statement.SetRelation(statement.RefTable.Relation) //[SWH|+]
 	var addedTableName = (len(statement.JoinStr()) > 0)
 
 	if !statement.noAutoCondition {
-		colNames, args := statement.buildConditions(table, bean, true, true, false, true, addedTableName)
+		colNames, args := statement.buildConditions(statement.RefTable, bean, true, true, false, true, addedTableName)
 
 		statement.ConditionStr = strings.Join(colNames, " "+statement.Engine.Dialect().AndStr()+" ")
 		statement.BeanArgs = args
@@ -1184,6 +1183,26 @@ func (statement *Statement) genCountSql(bean interface{}) (string, []interface{}
 	}
 	statement.attachInSql()
 	return statement.genSelectSQL(fmt.Sprintf("count(%v)", id)), append(append(statement.joinArgs, statement.Params...), statement.BeanArgs...)
+}
+
+func (statement *Statement) genSumSql(bean interface{}, columns ...string) (string, []interface{}) {
+	statement.setRefValue(rValue(bean))
+
+	var addedTableName = (len(statement.JoinStr()) > 0)
+
+	if !statement.noAutoCondition {
+		colNames, args := statement.buildConditions(statement.RefTable, bean, true, true, false, true, addedTableName)
+
+		statement.ConditionStr = strings.Join(colNames, " "+statement.Engine.Dialect().AndStr()+" ")
+		statement.BeanArgs = args
+	}
+
+	statement.attachInSql()
+	var sumStrs = make([]string, 0, len(columns))
+	for _, colName := range columns {
+		sumStrs = append(sumStrs, fmt.Sprintf("sum(%s)", colName))
+	}
+	return statement.genSelectSQL(strings.Join(sumStrs, ", ")), append(append(statement.joinArgs, statement.Params...), statement.BeanArgs...)
 }
 
 func (statement *Statement) genSelectSQL(columnStr string) (a string) {
@@ -1214,7 +1233,7 @@ func (statement *Statement) genSelectSQL(columnStr string) (a string) {
 	}
 	var whereStr = buf.String()
 
-	var fromStr string = " FROM " + quote(statement.TableName())
+	var fromStr = " FROM " + quote(statement.TableName())
 	if statement.TableAlias != "" {
 		if dialect.DBType() == core.ORACLE {
 			fromStr += " " + quote(statement.TableAlias)
@@ -1231,7 +1250,7 @@ func (statement *Statement) genSelectSQL(columnStr string) (a string) {
 			top = fmt.Sprintf(" TOP %d ", statement.LimitN)
 		}
 		if statement.Start > 0 {
-			var column string = "(id)"
+			var column = "(id)"
 			if len(statement.RefTable.PKColumns()) == 0 {
 				for _, index := range statement.RefTable.Indexes {
 					if len(index.Cols) == 1 {
@@ -1313,4 +1332,78 @@ func (statement *Statement) processIdParam() {
 			}
 		}
 	}
+}
+
+func (statement *Statement) JoinColumns(cols []*core.Column, includeTableName bool) string {
+	var colnames = make([]string, len(cols))
+	for i, col := range cols {
+		if includeTableName {
+			colnames[i] = statement.Engine.Quote(statement.TableName()) +
+				"." + statement.Engine.Quote(col.Name)
+		} else {
+			colnames[i] = statement.Engine.Quote(col.Name)
+		}
+	}
+	return strings.Join(colnames, ", ")
+}
+
+func (statement *Statement) convertIdSql(sqlStr string) string {
+	if statement.RefTable != nil {
+		cols := statement.RefTable.PKColumns()
+		if len(cols) == 0 {
+			return ""
+		}
+
+		colstrs := statement.JoinColumns(cols, false)
+		sqls := splitNNoCase(sqlStr, " from ", 2)
+		if len(sqls) != 2 {
+			return ""
+		}
+		if statement.Engine.dialect.DBType() == "ql" {
+			return fmt.Sprintf("SELECT id() FROM %v", sqls[1])
+		}
+		return fmt.Sprintf("SELECT %s FROM %v", colstrs, sqls[1])
+	}
+	return ""
+}
+
+func (statement *Statement) convertUpdateSQL(sqlStr string) (string, string) {
+	if statement.RefTable == nil || len(statement.RefTable.PrimaryKeys) != 1 {
+		return "", ""
+	}
+
+	colstrs := statement.JoinColumns(statement.RefTable.PKColumns(), true)
+	sqls := splitNNoCase(sqlStr, "where", 2)
+	if len(sqls) != 2 {
+		if len(sqls) == 1 {
+			return sqls[0], fmt.Sprintf("SELECT %v FROM %v",
+				colstrs, statement.Engine.Quote(statement.TableName()))
+		}
+		return "", ""
+	}
+
+	var whereStr = sqls[1]
+
+	//TODO: for postgres only, if any other database?
+	var paraStr string
+	if statement.Engine.dialect.DBType() == core.POSTGRES {
+		paraStr = "$"
+	} else if statement.Engine.dialect.DBType() == core.MSSQL {
+		paraStr = ":"
+	}
+
+	if paraStr != "" {
+		if strings.Contains(sqls[1], paraStr) {
+			dollers := strings.Split(sqls[1], paraStr)
+			whereStr = dollers[0]
+			for i, c := range dollers[1:] {
+				ccs := strings.SplitN(c, " ", 2)
+				whereStr += fmt.Sprintf(paraStr+"%v %v", i+1, ccs[1])
+			}
+		}
+	}
+
+	return sqls[0], fmt.Sprintf("SELECT %v FROM %v WHERE %v",
+		colstrs, statement.Engine.Quote(statement.TableName()),
+		whereStr)
 }

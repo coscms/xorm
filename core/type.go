@@ -240,6 +240,7 @@ var (
 	PtrTimeType = reflect.PtrTo(TimeType)
 )
 
+// Type2SQLType generate SQLType acorrding Go's type
 func Type2SQLType(t reflect.Type) (st SQLType) {
 	switch k := t.Kind(); k {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:

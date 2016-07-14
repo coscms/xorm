@@ -935,7 +935,7 @@ WHERE c.relkind = 'r'::char AND c.relname = $1 AND s.table_schema = $2 AND f.att
 
 	for rows.Next() {
 		col := new(core.Column)
-		col.Indexes = make(map[string]bool)
+		col.Indexes = make(map[string]int)
 
 		var colName, isNullable, dataType string
 		var maxLenStr, colDefault, numPrecision, numRadix *string
@@ -989,7 +989,7 @@ WHERE c.relkind = 'r'::char AND c.relname = $1 AND s.table_schema = $2 AND f.att
 			col.SQLType = core.SQLType{strings.ToUpper(dataType), 0, 0}
 		}
 		if _, ok := core.SqlTypes[col.SQLType.Name]; !ok {
-			return nil, nil, errors.New(fmt.Sprintf("unknow colType %v", dataType))
+			return nil, nil, errors.New(fmt.Sprintf("unknow colType: %v", dataType))
 		}
 
 		col.Length = maxLen

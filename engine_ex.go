@@ -198,6 +198,6 @@ func (engine *Engine) QuoteWithDelim(s, d string) string {
 	return engine.Quote(strings.Replace(s, d, engine.Quote(d), -1))
 }
 
-func (engine *Engine) SQL(sql string) core.SQL {
+func (engine *Engine) ToSQL(sql string) core.SQL {
 	return core.SQL(sql)
 }

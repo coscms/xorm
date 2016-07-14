@@ -24,7 +24,7 @@ type Column struct {
 	Length2         int
 	Nullable        bool
 	Default         string
-	Indexes         map[string]bool
+	Indexes         map[string]int
 	IsPrimaryKey    bool
 	IsAutoIncrement bool
 	MapType         int
@@ -44,13 +44,14 @@ type Column struct {
 func NewColumn(name, fieldName string, sqlType SQLType, len1, len2 int, nullable bool) *Column {
 	return &Column{
 		Name:            name,
+		TableName:       "",
 		FieldName:       fieldName,
 		SQLType:         sqlType,
 		Length:          len1,
 		Length2:         len2,
 		Nullable:        nullable,
 		Default:         "",
-		Indexes:         make(map[string]bool),
+		Indexes:         make(map[string]int),
 		IsPrimaryKey:    false,
 		IsAutoIncrement: false,
 		MapType:         TWOSIDES,
