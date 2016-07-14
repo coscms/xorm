@@ -36,9 +36,6 @@ type Engine struct {
 	mutex  *sync.RWMutex
 	Cacher core.Cacher
 
-	showSQL      bool
-	showExecTime bool
-
 	logger     core.ILogger
 	TZLocation *time.Location
 	DatabaseTZ *time.Location // The timezone of the database
@@ -46,28 +43,28 @@ type Engine struct {
 	disableGlobalCache bool
 
 	//[SWH|+]
-	showLog          map[string]bool
 	TablePrefix      string
 	TableSuffix      string
 	RelTagIdentifier string
+	TLogger          *TLogger
 }
 
 // ShowSQL show SQL statment or not on logger if log level is great than INFO
 func (engine *Engine) ShowSQL(show ...bool) {
 	engine.logger.ShowSQL(show...)
 	if len(show) == 0 {
-		engine.showSQL = true
+		engine.TLogger.SQL.Disabled = false
 	} else {
-		engine.showSQL = show[0]
+		engine.TLogger.SQL.Disabled = show[0] == false
 	}
 }
 
 // ShowExecTime show SQL statment and execute time or not on logger if log level is great than INFO
 func (engine *Engine) ShowExecTime(show ...bool) {
 	if len(show) == 0 {
-		engine.showExecTime = true
+		engine.TLogger.ETime.Disabled = false
 	} else {
-		engine.showExecTime = show[0]
+		engine.TLogger.ETime.Disabled = show[0] == false
 	}
 }
 
@@ -257,7 +254,7 @@ func (engine *Engine) Ping() error {
 
 // logging sql
 func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
-	if engine.showSQL && !engine.showExecTime {
+	if engine.TLogger.SQL.Disabled && engine.TLogger.ETime.Disabled {
 		if len(sqlArgs) > 0 {
 			sqlStr = BuildSqlResult(sqlStr, sqlArgs)
 			engine.logger.Infof("[sql] %v [args] %v", sqlStr, sqlArgs)
@@ -268,7 +265,7 @@ func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 }
 
 func (engine *Engine) logSQLQueryTime(sqlStr string, args []interface{}, executionBlock func() (*core.Stmt, *core.Rows, error)) (*core.Stmt, *core.Rows, error) {
-	if engine.showSQL && engine.showExecTime {
+	if !engine.TLogger.SQL.Disabled && !engine.TLogger.ETime.Disabled {
 		b4ExecTime := time.Now()
 		stmt, res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
@@ -284,7 +281,7 @@ func (engine *Engine) logSQLQueryTime(sqlStr string, args []interface{}, executi
 }
 
 func (engine *Engine) logSQLExecutionTime(sqlStr string, args []interface{}, executionBlock func() (sql.Result, error)) (sql.Result, error) {
-	if engine.showSQL && engine.showExecTime {
+	if !engine.TLogger.SQL.Disabled && !engine.TLogger.ETime.Disabled {
 		b4ExecTime := time.Now()
 		res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)

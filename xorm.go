@@ -86,12 +86,13 @@ func NewEngine(driverName string, dataSourceName string) (*Engine, error) {
 		TagIdentifier: "xorm",
 		TZLocation:    time.Local,
 	}
-	engine.Init()
 
 	logger := NewSimpleLogger(os.Stdout)
 	logger.SetLevel(core.LOG_INFO)
 	engine.SetLogger(logger)
 	engine.SetMapper(core.NewCacheMapper(new(core.SnakeMapper)))
+
+	engine.Init()
 
 	runtime.SetFinalizer(engine, close)
 

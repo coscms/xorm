@@ -341,7 +341,7 @@ func (this *Engine) QueryStr(sql string, paramStr ...interface{}) []map[string]s
 	defer session.Close()
 	result, err := session.QueryStr(sql, paramStr...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return result
 }
@@ -351,7 +351,7 @@ func (this *Engine) QueryRaw(sql string, paramStr ...interface{}) []map[string]i
 	defer session.Close()
 	result, err := session.QueryRaw(sql, paramStr...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return result
 }
@@ -390,7 +390,7 @@ func (this *Engine) RawQueryKv(key string, val string, sql string, paramStr ...i
 		}
 	}, sql, paramStr...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return results
 }
@@ -410,7 +410,7 @@ func (this *Engine) RawQueryAllKvs(key string, sql string, paramStr ...interface
 		}
 	}, sql, paramStr...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return results
 }
@@ -422,7 +422,7 @@ func (this *Engine) GetRows(sql string, params ...interface{}) []*ResultSet {
 	sql = this.ReplaceTablePrefix(sql)
 	result, err := this.RawQuery(sql, params...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return result
 }
@@ -431,7 +431,7 @@ func (this *Engine) GetRow(sql string, params ...interface{}) (result *ResultSet
 	sql = this.ReplaceTablePrefix(sql)
 	results, err := this.RawQuery(sql+" LIMIT 1", params...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 		return
 	}
 	if len(results) > 0 {
@@ -528,7 +528,7 @@ func (this *Engine) RawQueryKvs(key string, sql string, paramStr ...interface{})
 		}
 	}, sql, paramStr...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return results
 }
@@ -546,7 +546,7 @@ func (this *Engine) RawQueryStr(sql string, paramStr ...interface{}) []map[strin
 		results = append(results, result)
 	}, sql, paramStr...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return results
 }
@@ -688,10 +688,10 @@ func (this *Engine) RawExec(sql string, retId bool, params ...interface{}) (affe
 			affected, err = result.RowsAffected()
 		}
 		if err != nil {
-			this.TagLogError("base", err)
+			this.TLogger.Base.Error(err)
 		}
 	} else {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return
 }
@@ -699,7 +699,7 @@ func (this *Engine) RawExec(sql string, retId bool, params ...interface{}) (affe
 func (this *Engine) RawExecr(sql string, params ...interface{}) (result sql.Result, err error) {
 	result, err = this.Exec(sql, params...)
 	if err != nil {
-		this.TagLogError("base", err)
+		this.TLogger.Base.Error(err)
 	}
 	return
 }

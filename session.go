@@ -695,7 +695,7 @@ func (session *Session) cacheGet(bean interface{}, sqlStr string, args ...interf
 
 	cacher := session.Engine.getCacher2(session.Statement.RefTable)
 	tableName := session.Statement.TableName()
-	session.Engine.logger.Debug("[cacheGet] find sql:", newsql, args)
+	session.Engine.TLogger.Cache.Debug("[cacheGet] find sql:", newsql, args)
 	ids, err := core.GetCacheSql(cacher, tableName, newsql, args)
 	table := session.Statement.RefTable
 	if err != nil {
@@ -731,19 +731,19 @@ func (session *Session) cacheGet(bean interface{}, sqlStr string, args ...interf
 		}
 
 		ids = []core.PK{pk}
-		session.Engine.logger.Debug("[cacheGet] cache ids:", newsql, ids)
+		session.Engine.TLogger.Cache.Debug("[cacheGet] cache ids:", newsql, ids)
 		err = core.PutCacheSql(cacher, ids, tableName, newsql, args)
 		if err != nil {
 			return false, err
 		}
 	} else {
-		session.Engine.logger.Debug("[cacheGet] cache hit sql:", newsql)
+		session.Engine.TLogger.Cache.Debug("[cacheGet] cache hit sql:", newsql)
 	}
 
 	if len(ids) > 0 {
 		structValue := reflect.Indirect(reflect.ValueOf(bean))
 		id := ids[0]
-		session.Engine.logger.Debug("[cacheGet] get bean:", tableName, id)
+		session.Engine.TLogger.Cache.Debug("[cacheGet] get bean:", tableName, id)
 		sid, err := id.ToString()
 		if err != nil {
 			return false, err
@@ -765,10 +765,10 @@ func (session *Session) cacheGet(bean interface{}, sqlStr string, args ...interf
 				return has, err
 			}
 
-			session.Engine.logger.Debug("[cacheGet] cache bean:", tableName, id, cacheBean)
+			session.Engine.TLogger.Cache.Debug("[cacheGet] cache bean:", tableName, id, cacheBean)
 			cacher.PutBean(tableName, sid, cacheBean)
 		} else {
-			session.Engine.logger.Debug("[cacheGet] cache hit bean:", tableName, id, cacheBean)
+			session.Engine.TLogger.Cache.Debug("[cacheGet] cache hit bean:", tableName, id, cacheBean)
 			has = true
 		}
 		structValue.Set(reflect.Indirect(reflect.ValueOf(cacheBean)))
@@ -811,7 +811,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 		for rows.Next() {
 			i++
 			if i > 500 {
-				session.Engine.logger.Debug("[cacheFind] ids length > 500, no cache")
+				session.Engine.TLogger.Cache.Debug("[cacheFind] ids length > 500, no cache")
 				return ErrCacheFailed
 			}
 			var res = make([]string, len(table.PrimaryKeys))
@@ -838,7 +838,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 			ids = append(ids, pk)
 		}
 
-		session.Engine.logger.Debug("[cacheFind] cache sql:", ids, tableName, newsql, args)
+		session.Engine.TLogger.Cache.Debug("[cacheFind] cache sql:", ids, tableName, newsql, args)
 		err = core.PutCacheSql(cacher, ids, tableName, newsql, args)
 		if err != nil {
 			return err
@@ -863,7 +863,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 			ides = append(ides, id)
 			ididxes[sid] = idx
 		} else {
-			session.Engine.logger.Debug("[cacheFind] cache hit bean:", tableName, id, bean)
+			session.Engine.TLogger.Cache.Debug("[cacheFind] cache hit bean:", tableName, id, bean)
 
 			pk := session.Engine.IdOf(bean)
 			xid, err := pk.ToString()
@@ -872,7 +872,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 			}
 
 			if sid != xid {
-				session.Engine.logger.Error("[cacheFind] error cache", xid, sid, bean)
+				session.Engine.TLogger.Cache.Error("[cacheFind] error cache", xid, sid, bean)
 				return ErrCacheFailed
 			}
 			temps[idx] = bean
@@ -923,7 +923,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 			}
 
 			temps[ididxes[sid]] = bean
-			session.Engine.logger.Debug("[cacheFind] cache bean:", tableName, id, bean, temps)
+			session.Engine.TLogger.Cache.Debug("[cacheFind] cache bean:", tableName, id, bean, temps)
 			cacher.PutBean(tableName, sid, bean)
 		}
 	}
@@ -931,7 +931,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 	for j := 0; j < len(temps); j++ {
 		bean := temps[j]
 		if bean == nil {
-			session.Engine.logger.Warn("[cacheFind] cache no hit:", tableName, ids[j], temps)
+			session.Engine.TLogger.Cache.Warn("[cacheFind] cache no hit:", tableName, ids[j], temps)
 			// return errors.New("cache error") // !nashtsai! no need to return error, but continue instead
 			continue
 		}
@@ -3336,7 +3336,7 @@ func (session *Session) cacheInsert(tables ...string) error {
 	cacher := session.Engine.getCacher2(table)
 
 	for _, t := range tables {
-		session.Engine.logger.Debug("[cache] clear sql:", t)
+		session.Engine.TLogger.Cache.Debug("[cache] clear sql:", t)
 		cacher.ClearIds(t)
 	}
 
@@ -3356,7 +3356,7 @@ func (session *Session) cacheUpdate(sqlStr string, args ...interface{}) error {
 	for _, filter := range session.Engine.dialect.Filters() {
 		newsql = filter.Do(newsql, session.Engine.dialect, session.Statement.RefTable)
 	}
-	session.Engine.logger.Debug("[cacheUpdate] new sql", oldhead, newsql)
+	session.Engine.TLogger.Cache.Debug("[cacheUpdate] new sql", oldhead, newsql)
 
 	var nStart int
 	if len(args) > 0 {
@@ -3370,7 +3370,7 @@ func (session *Session) cacheUpdate(sqlStr string, args ...interface{}) error {
 	table := session.Statement.RefTable
 	cacher := session.Engine.getCacher2(table)
 	tableName := session.Statement.TableName()
-	session.Engine.logger.Debug("[cacheUpdate] get cache sql", newsql, args[nStart:])
+	session.Engine.TLogger.Cache.Debug("[cacheUpdate] get cache sql", newsql, args[nStart:])
 	ids, err := core.GetCacheSql(cacher, tableName, newsql, args[nStart:])
 	if err != nil {
 		rows, err := session.DB().Query(newsql, args[nStart:]...)
@@ -3403,7 +3403,7 @@ func (session *Session) cacheUpdate(sqlStr string, args ...interface{}) error {
 
 			ids = append(ids, pk)
 		}
-		session.Engine.logger.Debug("[cacheUpdate] find updated id", ids)
+		session.Engine.TLogger.Cache.Debug("[cacheUpdate] find updated id", ids)
 	} /*else {
 	    session.Engine.LogDebug("[xorm:cacheUpdate] del cached sql:", tableName, newsql, args)
 	    cacher.DelIds(tableName, genSqlKey(newsql, args))
@@ -3434,7 +3434,7 @@ func (session *Session) cacheUpdate(sqlStr string, args ...interface{}) error {
 				} else if strings.Contains(colName, session.Engine.QuoteStr()) {
 					colName = strings.TrimSpace(strings.Replace(colName, session.Engine.QuoteStr(), "", -1))
 				} else {
-					session.Engine.logger.Debug("[cacheUpdate] cannot find column", tableName, colName)
+					session.Engine.TLogger.Cache.Debug("[cacheUpdate] cannot find column", tableName, colName)
 					return ErrCacheFailed
 				}
 
@@ -3443,7 +3443,7 @@ func (session *Session) cacheUpdate(sqlStr string, args ...interface{}) error {
 					if err != nil {
 						session.Engine.logger.Error(err)
 					} else {
-						session.Engine.logger.Debug("[cacheUpdate] set bean field", bean, colName, fieldValue.Interface())
+						session.Engine.TLogger.Cache.Debug("[cacheUpdate] set bean field", bean, colName, fieldValue.Interface())
 						if col.IsVersion && session.Statement.checkVersion {
 							fieldValue.SetInt(fieldValue.Int() + 1)
 						} else {
@@ -3451,16 +3451,16 @@ func (session *Session) cacheUpdate(sqlStr string, args ...interface{}) error {
 						}
 					}
 				} else {
-					session.Engine.logger.Errorf("[cacheUpdate] ERROR: column %v is not table %v's",
+					session.Engine.TLogger.Cache.Errorf("[cacheUpdate] ERROR: column %v is not table %v's",
 						colName, table.Name)
 				}
 			}
 
-			session.Engine.logger.Debug("[cacheUpdate] update cache", tableName, id, bean)
+			session.Engine.TLogger.Cache.Debug("[cacheUpdate] update cache", tableName, id, bean)
 			cacher.PutBean(tableName, sid, bean)
 		}
 	}
-	session.Engine.logger.Debug("[cacheUpdate] clear cached table sql:", tableName)
+	session.Engine.TLogger.Cache.Debug("[cacheUpdate] clear cached table sql:", tableName)
 	cacher.ClearIds(tableName)
 	return nil
 }
@@ -3674,7 +3674,7 @@ func (session *Session) Update(bean interface{}, condiBean ...interface{}) (int6
 			closure(bean)
 		}
 		if processor, ok := interface{}(bean).(AfterUpdateProcessor); ok {
-			session.Engine.logger.Debug("[event]", session.Statement.TableName(), " has after update processor")
+			session.Engine.TLogger.Event.Debug("[event]", session.Statement.TableName(), " has after update processor")
 			processor.AfterUpdate()
 		}
 	} else {
@@ -3753,14 +3753,14 @@ func (session *Session) cacheDelete(sqlStr string, args ...interface{}) error {
 	}*/
 
 	for _, id := range ids {
-		session.Engine.logger.Debug("[cacheDelete] delete cache obj", tableName, id)
+		session.Engine.TLogger.Cache.Debug("[cacheDelete] delete cache obj", tableName, id)
 		sid, err := id.ToString()
 		if err != nil {
 			return err
 		}
 		cacher.DelBean(tableName, sid)
 	}
-	session.Engine.logger.Debug("[cacheDelete] clear cache sql", tableName)
+	session.Engine.TLogger.Cache.Debug("[cacheDelete] clear cache sql", tableName)
 	cacher.ClearIds(tableName)
 	return nil
 }
