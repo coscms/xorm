@@ -141,7 +141,7 @@ func (t *TLogger) Open(tags ...string) {
 		return
 	}
 	for _, tag := range tags {
-		t.SetStatusByName(tag, true)
+		t.SetStatusByName(tag, false)
 	}
 }
 
@@ -156,7 +156,7 @@ func (t *TLogger) Close(tags ...string) {
 		return
 	}
 	for _, tag := range tags {
-		t.SetStatusByName(tag, false)
+		t.SetStatusByName(tag, true)
 	}
 }
 
