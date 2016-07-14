@@ -200,7 +200,7 @@ func NewTLogger(logger core.ILogger) *TLogger {
 var defaultLogProcessor = func(tag string, format string, args []interface{}) (string, []interface{}) {
 	if format == "" {
 		if len(args) > 0 {
-			args[0] = fmt.Sprintf("[%s] %v", tag, args[0])
+			args[0] = "[" + tag + "] " + fmt.Sprintf("%v", args[0])
 		}
 		return format, args
 	}
