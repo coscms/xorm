@@ -77,7 +77,11 @@ func (engine *Engine) Logger() core.ILogger {
 func (engine *Engine) SetLogger(logger core.ILogger) {
 	engine.logger = logger
 	engine.dialect.SetLogger(logger)
-	engine.TLogger.SetLogger(logger)
+	if engine.TLogger == nil {
+		engine.TLogger = NewTLogger(engine.logger)
+	} else {
+		engine.TLogger.SetLogger(logger)
+	}
 }
 
 // SetDisableGlobalCache disable global cache or not
