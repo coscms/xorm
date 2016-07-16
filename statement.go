@@ -202,7 +202,11 @@ func (statement *Statement) Or(querystring string, args ...interface{}) *Stateme
 
 func (statement *Statement) setRefValue(v reflect.Value) {
 	statement.RefTable = statement.Engine.autoMapType(v)
-	statement.tableName = statement.Engine.tbName(v)
+	//statement.tableName = statement.Engine.tbName(v) //[SWH|-]
+
+	//[SWH|+]---\
+	statement.tableName = statement.RefTable.Name
+	statement.SetRelation(statement.RefTable.Relation)
 }
 
 // Table tempororily set table name, the parameter could be a string or a pointer of struct
@@ -1166,7 +1170,6 @@ func (statement *Statement) buildConditions(table *core.Table, bean interface{},
 
 func (statement *Statement) genCountSql(bean interface{}) (string, []interface{}) {
 	statement.setRefValue(rValue(bean))
-	statement.SetRelation(statement.RefTable.Relation) //[SWH|+]
 	var addedTableName = (len(statement.JoinStr()) > 0)
 
 	if !statement.noAutoCondition {

@@ -1238,7 +1238,6 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 	}
 
 	var table = session.Statement.RefTable
-	session.Statement.SetRelation(table.Relation) //[SWH|+]
 
 	var addedTableName = (len(session.Statement.JoinStr()) > 0)
 	if !session.Statement.noAutoCondition && len(condiBean) > 0 {

@@ -217,6 +217,7 @@ func (statement *Statement) SetRelation(r *core.Relation) {
 			name := statement.RefTable.Name
 			statement.TableAlias, _ = r.ExAlias[name]
 		}
+		statement.tableName = statement.RefTable.Name
 	} else {
 		if len(statement.TableAlias) == 0 {
 			statement.TableAlias = r.Table.Type.Name()
