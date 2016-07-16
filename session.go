@@ -844,7 +844,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 			return err
 		}
 	} else {
-		session.Engine.logger.Debug("[cacheFind] cache hit sql:", newsql, args)
+		session.Engine.TLogger.Cache.Debug("[cacheFind] cache hit sql:", newsql, args)
 	}
 
 	sliceValue := reflect.Indirect(reflect.ValueOf(rowsSlicePtr))
