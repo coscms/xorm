@@ -259,7 +259,7 @@ func (engine *Engine) Ping() error {
 
 // logging sql
 func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
-	if engine.TLogger.SQL.Disabled && engine.TLogger.ETime.Disabled {
+	if !engine.TLogger.SQL.Disabled {
 		if len(sqlArgs) > 0 {
 			sqlStr = BuildSqlResult(sqlStr, sqlArgs)
 			engine.logger.Infof("[sql] %v [args] %v", sqlStr, sqlArgs)
@@ -270,7 +270,7 @@ func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
 }
 
 func (engine *Engine) logSQLQueryTime(sqlStr string, args []interface{}, executionBlock func() (*core.Stmt, *core.Rows, error)) (*core.Stmt, *core.Rows, error) {
-	if !engine.TLogger.SQL.Disabled && !engine.TLogger.ETime.Disabled {
+	if !engine.TLogger.ETime.Disabled {
 		b4ExecTime := time.Now()
 		stmt, res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
@@ -286,7 +286,7 @@ func (engine *Engine) logSQLQueryTime(sqlStr string, args []interface{}, executi
 }
 
 func (engine *Engine) logSQLExecutionTime(sqlStr string, args []interface{}, executionBlock func() (sql.Result, error)) (sql.Result, error) {
-	if !engine.TLogger.SQL.Disabled && !engine.TLogger.ETime.Disabled {
+	if !engine.TLogger.ETime.Disabled {
 		b4ExecTime := time.Now()
 		res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
