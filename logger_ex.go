@@ -18,10 +18,14 @@ type AdmpubLogger struct {
 
 var _ core.ILogger = &AdmpubLogger{}
 
-func NewAdmpubLogger() *AdmpubLogger {
+func NewAdmpubLogger(args ...*log.Logger) *AdmpubLogger {
 	l := &AdmpubLogger{
-		Logger: log.New(`xorm`),
-		level:  DEFAULT_LOG_LEVEL,
+		level: DEFAULT_LOG_LEVEL,
+	}
+	if len(args) > 0 {
+		l.Logger = args[0]
+	} else {
+		l.Logger = log.New(`xorm`)
 	}
 	return l
 }
