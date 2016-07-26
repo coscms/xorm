@@ -25,7 +25,7 @@ func NewAdmpubLogger(args ...*log.Logger) *AdmpubLogger {
 	if len(args) > 0 {
 		l.Logger = args[0]
 	} else {
-		l.Logger = log.New(`xorm`)
+		l.Logger = log.GetLogger(`xorm`)
 	}
 	return l
 }
