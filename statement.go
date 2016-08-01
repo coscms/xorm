@@ -678,7 +678,7 @@ func (s *Statement) Select(str string) *Statement {
 func (statement *Statement) Cols(columns ...string) *Statement {
 	cols := col2NewCols(columns...)
 	for _, nc := range cols {
-		statement.columnMap[strings.ToLower(nc)] = true
+		statement.columnMap[nc] = true
 	}
 
 	newColumns := statement.col2NewColsWithQuote(columns...)
@@ -698,7 +698,7 @@ func (statement *Statement) AllCols() *Statement {
 func (statement *Statement) MustCols(columns ...string) *Statement {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.mustColumnMap[strings.ToLower(nc)] = true
+		statement.mustColumnMap[nc] = true
 	}
 	return statement
 }
@@ -717,7 +717,7 @@ func (statement *Statement) UseBool(columns ...string) *Statement {
 func (statement *Statement) Omit(columns ...string) {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.columnMap[strings.ToLower(nc)] = false
+		statement.columnMap[nc] = false
 	}
 	statement.OmitStr = statement.Engine.Quote(strings.Join(newColumns, statement.Engine.Quote(", ")))
 }
@@ -726,7 +726,7 @@ func (statement *Statement) Omit(columns ...string) {
 func (statement *Statement) Nullable(columns ...string) {
 	newColumns := col2NewCols(columns...)
 	for _, nc := range newColumns {
-		statement.nullableMap[strings.ToLower(nc)] = true
+		statement.nullableMap[nc] = true
 	}
 }
 
