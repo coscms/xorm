@@ -55,6 +55,15 @@ FROM `webx_post` AS `Post`
 LEFT JOIN `webx_user` AS `User` ON User.id=Post.uid WHERE Post.id=2
 ```
 
+```
+如果想要使用自己的别名，可以在结构体字段中增加tag(alias)来实现。比如：
+type PostCollection struct {
+        *D.Post     `xorm:"extends" alias:"a"`
+        *D.User     `xorm:"extends" alias:"b"`
+}
+```
+
+
  5. 增加大量原生SQL执行接口(详见coscms.go)。
  6. 增加查询结果为`[]map[string]string`和`[]map[string]interface{}`类型的数据
     
