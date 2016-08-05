@@ -13,6 +13,7 @@ import (
 
 func (engine *Engine) Init() {
 	engine.RelTagIdentifier = `rel`
+	engine.AliasTagIdentifier = `alias`
 	engine.TLogger = NewTLogger(engine.logger)
 }
 

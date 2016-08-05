@@ -43,10 +43,11 @@ type Engine struct {
 	disableGlobalCache bool
 
 	//[SWH|+]
-	TablePrefix      string
-	TableSuffix      string
-	RelTagIdentifier string
-	TLogger          *TLogger
+	TablePrefix        string
+	TableSuffix        string
+	RelTagIdentifier   string
+	AliasTagIdentifier string
+	TLogger            *TLogger
 }
 
 // ShowSQL show SQL statment or not on logger if log level is great than INFO
@@ -993,7 +994,11 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 						//[SWH|+]
 						relTagStr := tag.Get(engine.RelTagIdentifier)
 						relation.AddExtend(parentTable, relTagStr)
-						relation.ExAlias[parentTable.Name] = t.Field(i).Name
+						tableAlias := tag.Get(engine.AliasTagIdentifier)
+						if len(tableAlias) == 0 {
+							tableAlias = t.Field(i).Name
+						}
+						relation.ExAlias[parentTable.Name] = tableAlias
 
 						for _, col := range parentTable.Columns() {
 							col.FieldName = fmt.Sprintf("%v.%v", t.Field(i).Name, col.FieldName)
