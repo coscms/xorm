@@ -1190,7 +1190,11 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 		}
 
 		table.AddColumn(col)
-		isTable = true //[SWH|+]
+
+		//[SWH|+]
+		table.AddMyColumn(col)
+		isTable = true
+
 		if fieldType.Kind() == reflect.Int64 && (strings.ToUpper(col.FieldName) == "ID" || strings.HasSuffix(strings.ToUpper(col.FieldName), ".ID")) {
 			idFieldColName = col.Name
 		}

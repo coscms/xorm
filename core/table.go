@@ -7,12 +7,13 @@ import (
 
 // database table
 type Table struct {
-	Name          string
-	Type          reflect.Type
-	columnsSeq    []string
+	Name       string
+	Type       reflect.Type
+	columnsSeq []string
 
 	// 表字段名称或对应的列信息(支持多个相同名称的字段)
-	columnsMap    map[string][]*Column
+	columnsMap map[string][]*Column
+	// 关联的所有表字段
 	columns       []*Column
 	Indexes       map[string]*Index
 	PrimaryKeys   []string
@@ -27,6 +28,8 @@ type Table struct {
 
 	// 表关联信息
 	Relation *Relation
+	// 本表字段
+	myColumns []*Column
 }
 
 func (table *Table) Columns() []*Column {
@@ -49,6 +52,9 @@ func NewTable(name string, t reflect.Type) *Table {
 		Indexes:     make(map[string]*Index),
 		Created:     make(map[string]bool),
 		PrimaryKeys: make([]string, 0),
+
+		// [SWH|+]
+		myColumns: make([]*Column, 0),
 	}
 }
 
@@ -134,4 +140,14 @@ func (table *Table) AddColumn(col *Column) {
 // add an index or an unique to table
 func (table *Table) AddIndex(index *Index) {
 	table.Indexes[index.Name] = index
+}
+
+//AddMyColumn 添加本表字段
+func (table *Table) AddMyColumn(col *Column) {
+	table.myColumns = append(table.myColumns, col)
+}
+
+//MyColumns 返回本表的所有字段
+func (table *Table) MyColumns() []*Column {
+	return table.myColumns
 }

@@ -846,7 +846,33 @@ func (statement *Statement) genColumnStr() string {
 
 func (statement *Statement) genColumns(table *core.Table, alias string, colNames *[]string, needTableName bool) {
 	hasOmitField := len(statement.OmitStr) > 0
-	for _, col := range table.Columns() {
+	for _, col := range table.MyColumns() {
+		if col.MapType == core.ONLYTODB {
+			continue
+		}
+		if hasOmitField {
+			lName := strings.ToLower(col.Name)
+			if get, ok := statement.columnMap[lName]; ok && !get {
+				continue
+			} else if alias != `` {
+				if get, ok := statement.columnMap[alias+`.`+lName]; ok && !get {
+					continue
+				}
+			}
+		}
+		name := statement.buildColName(col, alias, needTableName, true)
+		*colNames = append(*colNames, name)
+	}
+
+	//[SWH|+]
+	if table.Relation == nil {
+		return
+	}
+	if len(table.Relation.Extends) == 0 {
+		return
+	}
+	alias, _ = table.Relation.ExAlias[table.Relation.Extends[0].Name]
+	for _, col := range table.Relation.Extends[0].MyColumns() {
 		if col.MapType == core.ONLYTODB {
 			continue
 		}
