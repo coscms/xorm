@@ -867,8 +867,24 @@ func BuildSqlResult(sqlStr string, args interface{}) string {
 	return sqlStr
 }
 
-func AddSlashes(s string) string {
-	s = strings.Replace(s, `\`, `\\`, -1)
-	s = strings.Replace(s, "'", `\'`, -1)
-	return s
+func AddSlashes(s string, args ...rune) string {
+	b := []rune{'\\', '\''}
+	if len(args) > 0 {
+		b = append(b, args...)
+	}
+	return AddCSlashes(s, b...)
+}
+
+func AddCSlashes(s string, b ...rune) string {
+	r := []rune{}
+	for _, v := range []rune(s) {
+		for _, f := range b {
+			if v == f {
+				r = append(r, '\\')
+				break
+			}
+		}
+		r = append(r, v)
+	}
+	return string(r)
 }

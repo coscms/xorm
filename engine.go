@@ -1290,6 +1290,13 @@ func (engine *Engine) CreateUniques(bean interface{}) error {
 	return session.CreateUniques(bean)
 }
 
+// DropIndexes drop indexes
+func (engine *Engine) DropIndexes(bean interface{}) error {
+	session := engine.NewSession()
+	defer session.Close()
+	return session.DropIndexes(bean)
+}
+
 func (engine *Engine) getCacher2(table *core.Table) core.Cacher {
 	return table.Cacher
 }
