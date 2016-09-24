@@ -56,7 +56,7 @@ func (engine *Engine) ShowSQL(show ...bool) {
 	if len(show) == 0 {
 		engine.TLogger.SQL.Disabled = false
 	} else {
-		engine.TLogger.SQL.Disabled = show[0] == false
+		engine.TLogger.SQL.Disabled = show[0]==false
 	}
 }
 
@@ -65,7 +65,7 @@ func (engine *Engine) ShowExecTime(show ...bool) {
 	if len(show) == 0 {
 		engine.TLogger.ETime.Disabled = false
 	} else {
-		engine.TLogger.ETime.Disabled = show[0] == false
+		engine.TLogger.ETime.Disabled = show[0]==false
 	}
 }
 
@@ -304,9 +304,7 @@ func (engine *Engine) logSQLExecutionTime(sqlStr string, args []interface{}, exe
 
 // Sql will be depracated, please use SQL instead
 func (engine *Engine) Sql(querystring string, args ...interface{}) *Session {
-	session := engine.NewSession()
-	session.IsAutoClose = true
-	return session.Sql(querystring, args...)
+	return engine.SQL(querystring, args...)
 }
 
 // SQL method let's you manualy write raw SQL and operate
@@ -315,10 +313,10 @@ func (engine *Engine) Sql(querystring string, args ...interface{}) *Session {
 //         engine.SQL("select * from user").Find(&users)
 //
 // This    code will execute "select * from user" and set the records to users
-func (engine *Engine) SQL(querystring string, args ...interface{}) *Session {
+func (engine *Engine) SQL(query interface{}, args ...interface{}) *Session {
 	session := engine.NewSession()
 	session.IsAutoClose = true
-	return session.SQL(querystring, args...)
+	return session.SQL(query, args...)
 }
 
 // NoAutoTime Default if your struct has "created" or "updated" filed tag, the fields
@@ -417,12 +415,17 @@ func (engine *Engine) tbName(v reflect.Value) string {
 	if tb, ok := v.Interface().(TableName); ok {
 		return tb.TableName()
 	}
-	if v.CanAddr() {
+
+	if v.Type().Kind() == reflect.Ptr {
+		if tb, ok := reflect.Indirect(v).Interface().(TableName); ok {
+			return tb.TableName()
+		}
+	} else if v.CanAddr() {
 		if tb, ok := v.Addr().Interface().(TableName); ok {
 			return tb.TableName()
 		}
 	}
-	return engine.TableMapper.Obj2Table(v.Type().Name())
+	return engine.TableMapper.Obj2Table(reflect.Indirect(v).Type().Name())
 }
 
 // DumpAll dump database all table structs and data to w with specify db type
@@ -648,10 +651,10 @@ func (engine *Engine) Cascade(trueOrFalse ...bool) *Session {
 }
 
 // Where method provide a condition query
-func (engine *Engine) Where(querystring string, args ...interface{}) *Session {
+func (engine *Engine) Where(query interface{}, args ...interface{}) *Session {
 	session := engine.NewSession()
 	session.IsAutoClose = true
-	return session.Where(querystring, args...)
+	return session.Where(query, args...)
 }
 
 // Id will be depracated, please use ID instead
@@ -917,6 +920,10 @@ func (engine *Engine) newTable() *core.Table {
 type TableName interface {
 	TableName() string
 }
+
+var (
+	tpTableName = reflect.TypeOf((*TableName)(nil)).Elem()
+)
 
 func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Table {
 	t := v.Type()
@@ -1229,17 +1236,6 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 	}
 
 	return table
-}
-
-// Map a struct to a table
-func (engine *Engine) mapping(beans ...interface{}) (e error) {
-	engine.mutex.Lock()
-	defer engine.mutex.Unlock()
-	for _, bean := range beans {
-		v := rValue(bean)
-		engine.Tables[v.Type()] = engine.mapType(v)
-	}
-	return
 }
 
 // IsTableEmpty if a table has any reocrd

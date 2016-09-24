@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -107,7 +108,7 @@ func runReverse(cmd *Command, args []string) {
 
 	dir, err := filepath.Abs(args[2])
 	if err != nil {
-		log.Error(err)
+		log.Errorf("%v", err)
 		return
 	}
 
@@ -148,13 +149,13 @@ func runReverse(cmd *Command, args []string) {
 
 	Orm, err := xorm.NewEngine(args[0], args[1])
 	if err != nil {
-		log.Error(err)
+		log.Errorf("%v", err)
 		return
 	}
 
 	tables, err := Orm.DBMetas()
 	if err != nil {
-		log.Error(err)
+		log.Errorf("%v", err)
 		return
 	}
 	structTmplCount := 0
@@ -169,7 +170,7 @@ func runReverse(cmd *Command, args []string) {
 
 		bs, err := ioutil.ReadFile(f)
 		if err != nil {
-			log.Error(err)
+			log.Errorf("%v", err)
 			return err
 		}
 
@@ -178,7 +179,7 @@ func runReverse(cmd *Command, args []string) {
 
 		tmpl, err := t.Parse(string(bs))
 		if err != nil {
-			log.Error(err)
+			log.Errorf("%v", err)
 			return err
 		}
 
@@ -190,7 +191,7 @@ func runReverse(cmd *Command, args []string) {
 		if !isMultiFile {
 			w, err = os.Create(filepath.Join(genDir, newFileName))
 			if err != nil {
-				log.Error(err)
+				log.Errorf("%v", err)
 				return err
 			}
 
@@ -210,20 +211,20 @@ func runReverse(cmd *Command, args []string) {
 			t := &Tmpl{Tables: tbls, Imports: imports, Model: model}
 			err = tmpl.Execute(newbytes, t)
 			if err != nil {
-				log.Error(err)
+				log.Errorf("%v", err)
 				return err
 			}
 
 			tplcontent, err := ioutil.ReadAll(newbytes)
 			if err != nil {
-				log.Error(err)
+				log.Errorf("%v", err)
 				return err
 			}
 			var source string
 			if langTmpl.Formater != nil {
 				source, err = langTmpl.Formater(string(tplcontent))
 				if err != nil {
-					log.Error(err)
+					log.Errorf("%v", err)
 					return err
 				}
 			} else {
@@ -245,7 +246,7 @@ func runReverse(cmd *Command, args []string) {
 
 				w, err := os.Create(filepath.Join(genDir, unTitle(mapper.Table2Obj(table.Name))+ext))
 				if err != nil {
-					log.Error(err)
+					log.Errorf("%v", err)
 					return err
 				}
 
@@ -254,13 +255,13 @@ func runReverse(cmd *Command, args []string) {
 				t := &Tmpl{Tables: tbs, Imports: imports, Model: model}
 				err = tmpl.Execute(newbytes, t)
 				if err != nil {
-					log.Error(err)
+					log.Errorf("%v", err)
 					return err
 				}
 
 				tplcontent, err := ioutil.ReadAll(newbytes)
 				if err != nil {
-					log.Error(err)
+					log.Errorf("%v", err)
 					return err
 				}
 				var source string
@@ -279,6 +280,7 @@ func runReverse(cmd *Command, args []string) {
 				structTmplCount++
 			}
 		}
+
 		return nil
 	})
 	if err != nil {
