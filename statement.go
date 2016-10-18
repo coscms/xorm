@@ -1132,13 +1132,9 @@ func (statement *Statement) genGetSQL(bean interface{}) (string, []interface{}) 
 		columnStr = statement.selectStr
 	} else {
 		// TODO: always generate column names, not use * even if join
-		if len(statement.JoinStr()) == 0 {
+		if len(statement.JoinStr()) > 0 {
 			if len(columnStr) == 0 {
-				if len(statement.GroupByStr) > 0 {
-					columnStr = statement.Engine.Quote(strings.Replace(statement.GroupByStr, ",", statement.Engine.Quote(","), -1))
-				} else {
-					columnStr = statement.genColumnStr()
-				}
+				columnStr = statement.genColumnStr()
 			}
 		} else {
 			if len(columnStr) == 0 {

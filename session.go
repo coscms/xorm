@@ -1609,7 +1609,7 @@ func (session *Session) row2Bean(rows *core.Rows, fields []string, fieldsCount i
 
 	session.Statement.setRefValue(dataStruct)
 
-	return session._row2Bean(rows, fields, fieldsCount, bean, &dataStruct, session.Statement.RefTable)
+	return session._row2Bean(rows, fields, fieldsCount, bean, &dataStruct, session.Engine.autoMapType(dataStruct)) //[SWH|M]fixbug
 }
 
 func (session *Session) _row2Bean(rows *core.Rows, fields []string, fieldsCount int, bean interface{}, dataStruct *reflect.Value, table *core.Table) error {
