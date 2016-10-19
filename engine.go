@@ -56,7 +56,7 @@ func (engine *Engine) ShowSQL(show ...bool) {
 	if len(show) == 0 {
 		engine.TLogger.SQL.Disabled = false
 	} else {
-		engine.TLogger.SQL.Disabled = show[0]==false
+		engine.TLogger.SQL.Disabled = show[0] == false
 	}
 }
 
@@ -65,7 +65,7 @@ func (engine *Engine) ShowExecTime(show ...bool) {
 	if len(show) == 0 {
 		engine.TLogger.ETime.Disabled = false
 	} else {
-		engine.TLogger.ETime.Disabled = show[0]==false
+		engine.TLogger.ETime.Disabled = show[0] == false
 	}
 }
 
@@ -139,21 +139,6 @@ func (engine *Engine) Quote(sql string) string {
 
 func (engine *Engine) quote(sql string) string {
 	return engine.dialect.QuoteStr() + sql + engine.dialect.QuoteStr()
-}
-
-func (engine *Engine) quoteColumn(keyName string) string {
-	if len(keyName) == 0 {
-		return keyName
-	}
-
-	keyName = strings.TrimSpace(keyName)
-	keyName = strings.Replace(keyName, "`", "", -1)
-	keyName = strings.Replace(keyName, engine.QuoteStr(), "", -1)
-
-	keyName = strings.Replace(keyName, ",", engine.dialect.QuoteStr()+","+engine.dialect.QuoteStr(), -1)
-	keyName = strings.Replace(keyName, ".", engine.dialect.QuoteStr()+"."+engine.dialect.QuoteStr(), -1)
-
-	return engine.dialect.QuoteStr() + keyName + engine.dialect.QuoteStr()
 }
 
 func (engine *Engine) quoteTable(keyName string) string {

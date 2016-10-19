@@ -1140,6 +1140,8 @@ func (statement *Statement) genGetSQL(bean interface{}) (string, []interface{}) 
 			if len(columnStr) == 0 {
 				if len(statement.GroupByStr) > 0 {
 					columnStr = statement.Engine.Quote(strings.Replace(statement.GroupByStr, ",", statement.Engine.Quote(","), -1))
+				} else if len(statement.columnMap) > 0 || len(statement.mustColumnMap) > 0 {
+					columnStr = statement.genColumnStr()
 				} else {
 					columnStr = "*"
 				}
@@ -1209,7 +1211,7 @@ func (statement *Statement) genSelectSQL(columnStr, condSQL string) (a string) {
 			top = fmt.Sprintf(" TOP %d ", statement.LimitN)
 		}
 		if statement.Start > 0 {
-			var column = "(id)"
+			var column string
 			if len(statement.RefTable.PKColumns()) == 0 {
 				for _, index := range statement.RefTable.Indexes {
 					if len(index.Cols) == 1 {
@@ -1219,6 +1221,15 @@ func (statement *Statement) genSelectSQL(columnStr, condSQL string) (a string) {
 				}
 				if len(column) == 0 {
 					column = statement.RefTable.ColumnsSeq()[0]
+				}
+			} else {
+				column = statement.RefTable.PKColumns()[0].Name
+			}
+			if statement.needTableName() {
+				if len(statement.TableAlias) > 0 {
+					column = statement.TableAlias + "." + column
+				} else {
+					column = statement.TableName() + "." + column
 				}
 			}
 			var orderStr string

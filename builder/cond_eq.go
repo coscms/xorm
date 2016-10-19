@@ -7,11 +7,10 @@ type Eq map[string]interface{}
 var _ Cond = Eq{}
 
 func (eq Eq) WriteTo(w Writer) error {
-	var args = make([]interface{}, 0, len(eq))
 	var i = 0
 	for k, v := range eq {
 		switch v.(type) {
-		case []int, []int64, []string, []int32, []int16, []int8:
+		case []int, []int64, []string, []int32, []int16, []int8, []uint, []uint64, []uint32, []uint16, []interface{}:
 			if err := In(k, v).WriteTo(w); err != nil {
 				return err
 			}
@@ -27,12 +26,24 @@ func (eq Eq) WriteTo(w Writer) error {
 			if _, err := fmt.Fprintf(w, ")"); err != nil {
 				return err
 			}
+		case *Builder:
+			if _, err := fmt.Fprintf(w, "%s=(", k); err != nil {
+				return err
+			}
+
+			if err := v.(*Builder).WriteTo(w); err != nil {
+				return err
+			}
+
+			if _, err := fmt.Fprintf(w, ")"); err != nil {
+				return err
+			}
 
 		default:
 			if _, err := fmt.Fprintf(w, "%s=?", k); err != nil {
 				return err
 			}
-			args = append(args, v)
+			w.Append(v)
 		}
 		if i != len(eq)-1 {
 			if _, err := fmt.Fprint(w, " AND "); err != nil {
@@ -41,7 +52,6 @@ func (eq Eq) WriteTo(w Writer) error {
 		}
 		i = i + 1
 	}
-	w.Append(args...)
 	return nil
 }
 
