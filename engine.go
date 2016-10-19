@@ -985,7 +985,7 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 
 						//[SWH|+]
 						relTagStr := tag.Get(engine.RelTagIdentifier)
-						relation.AddExtend(parentTable, relTagStr)
+						relation.AddExtend(parentTable, relTagStr, t.Field(i).Name)
 						tableAlias := tag.Get(engine.AliasTagIdentifier)
 						if len(tableAlias) == 0 {
 							tableAlias = t.Field(i).Name

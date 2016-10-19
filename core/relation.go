@@ -8,11 +8,12 @@ import (
 
 func NewRelation(table *Table) *Relation {
 	return &Relation{
-		Table:         table,
-		Extends:       make([]*Table, 0),
-		ExAlias:       make(map[string]string),
-		RelTables:     []*RelTable{},
-		nameRelTables: map[string]int{},
+		Table:            table,
+		Extends:          make([]*Table, 0),
+		ExAlias:          make(map[string]string),
+		RelTables:        []*RelTable{},
+		nameRelTables:    map[string]int{},
+		struct2TableName: make(map[string]string),
 	}
 }
 
@@ -50,11 +51,12 @@ func (r *RelTable) String() string {
 
 type Relation struct {
 	*Table
-	IsTable       bool
-	Extends       []*Table          //join关联表。
-	ExAlias       map[string]string //关联表真实表名和别名对照
-	RelTables     []*RelTable
-	nameRelTables map[string]int //名称对应的RelTables索引
+	IsTable          bool
+	Extends          []*Table          //join关联表。
+	ExAlias          map[string]string //关联表真实表名和别名对照
+	RelTables        []*RelTable
+	nameRelTables    map[string]int    //真实表名称对应的RelTables索引
+	struct2TableName map[string]string //结构体名对应的真实表名称
 }
 
 func (r *Relation) Alias(rawName string) string {
@@ -71,6 +73,14 @@ func (r *Relation) AliasGetByIndex(index int) string {
 	return r.Alias(r.Extends[index].Name)
 }
 
+func (r *Relation) AliasGetByStructField(structField string) string {
+	tableName := r.GetTableNameByStructField(structField)
+	if len(tableName) == 0 {
+		return ``
+	}
+	return r.Alias(tableName)
+}
+
 func (r *Relation) GetRelTableByName(name string) *RelTable {
 	if i, ok := r.nameRelTables[name]; ok {
 		return r.RelTables[i]
@@ -78,7 +88,14 @@ func (r *Relation) GetRelTableByName(name string) *RelTable {
 	return nil
 }
 
-func (r *Relation) AddExtend(t *Table, relTagStr string) {
+func (r *Relation) GetTableNameByStructField(structField string) string {
+	if tableName, ok := r.struct2TableName[structField]; ok {
+		return tableName
+	}
+	return ``
+}
+
+func (r *Relation) AddExtend(t *Table, relTagStr string, structField string) {
 	r.Extends = append(r.Extends, t)
 	var rt *RelTable
 	if relTagStr != `` {
@@ -92,6 +109,7 @@ func (r *Relation) AddExtend(t *Table, relTagStr string) {
 			rt = NewRelTable(`INNER`, relv[0], t.Name)
 		}
 	}
+	r.struct2TableName[structField] = t.Name
 	r.nameRelTables[t.Name] = len(r.RelTables)
 	r.RelTables = append(r.RelTables, rt)
 }
