@@ -886,5 +886,5 @@ func AddCSlashes(s string, b ...rune) string {
 		}
 		r = append(r, v)
 	}
-	return string(r)
+	return strings.TrimRight(string(r), `\`)
 }
