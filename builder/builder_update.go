@@ -1,3 +1,7 @@
+// Copyright 2016 The Xorm Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package builder
 
 import (
@@ -18,7 +22,7 @@ func (b *Builder) updateWriteTo(w Writer) error {
 	}
 
 	for i, s := range b.updates {
-		if err := s.WriteTo(w); err != nil {
+		if err := s.opWriteTo(",", w); err != nil {
 			return err
 		}
 
