@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -41,6 +40,7 @@ func init() {
 		"-s": false,
 		"-l": false,
 	}
+	log.Sync(true)
 }
 
 var (
@@ -80,7 +80,7 @@ func runReverse(cmd *Command, args []string) {
 		return
 	}
 
-	var isMultiFile bool = true
+	isMultiFile := true
 	if use, ok := cmd.Flags["-s"]; ok {
 		isMultiFile = !use
 	}
@@ -119,7 +119,7 @@ func runReverse(cmd *Command, args []string) {
 
 	var langTmpl LangTmpl
 	var ok bool
-	var lang string = "go"
+	lang := "go"
 	var prefix string
 
 	cfgPath := filepath.Join(dir, "config")
@@ -138,6 +138,10 @@ func runReverse(cmd *Command, args []string) {
 		if j, ok := configs["prefix"]; ok {
 			prefix = j
 		}
+	}
+	if err != nil {
+		log.Errorf("%v", err)
+		return
 	}
 
 	if langTmpl, ok = langTmpls[lang]; !ok {
@@ -160,6 +164,9 @@ func runReverse(cmd *Command, args []string) {
 	}
 	structTmplCount := 0
 	err = filepath.Walk(dir, func(f string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if info.IsDir() {
 			return nil
 		}
@@ -197,7 +204,7 @@ func runReverse(cmd *Command, args []string) {
 
 			imports := langTmpl.GenImports(tables)
 
-			tbls := make([]*core.Table, 0)
+			var tbls []*core.Table
 			for _, table := range tables {
 				//[SWH|+]
 				if prefix != "" {
