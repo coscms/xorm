@@ -35,8 +35,8 @@ type Column struct {
 	IsVersion       bool
 	fieldPath       []string
 	DefaultIsEmpty  bool
-	EnumOptions     map[string]int
-	SetOptions      map[string]int
+	EnumOptions     []string
+	SetOptions      []string
 	DisableTimeZone bool
 	TimeZone        *time.Location // column specified time zone
 }
@@ -62,7 +62,7 @@ func NewColumn(name, fieldName string, sqlType SQLType, len1, len2 int, nullable
 		IsVersion:       false,
 		fieldPath:       nil,
 		DefaultIsEmpty:  false,
-		EnumOptions:     make(map[string]int),
+		EnumOptions:     nil,
 	}
 }
 

@@ -1094,19 +1094,19 @@ func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Tab
 							col.SQLType = core.SQLType{Name: fs[0]}
 							if fs[0] == core.Enum && fs[1][0] == '\'' { //enum
 								options := strings.Split(fs[1][0:len(fs[1])-1], ",")
-								col.EnumOptions = make(map[string]int)
+								col.EnumOptions = make([]string, len(options))
 								for k, v := range options {
 									v = strings.TrimSpace(v)
 									v = strings.Trim(v, "'")
-									col.EnumOptions[v] = k
+									col.EnumOptions[k] = v
 								}
 							} else if fs[0] == core.Set && fs[1][0] == '\'' { //set
 								options := strings.Split(fs[1][0:len(fs[1])-1], ",")
-								col.SetOptions = make(map[string]int)
+								col.SetOptions = make([]string, len(options))
 								for k, v := range options {
 									v = strings.TrimSpace(v)
 									v = strings.Trim(v, "'")
-									col.SetOptions[v] = k
+									col.SetOptions[k] = v
 								}
 							} else {
 								fs2 := strings.Split(fs[1][0:len(fs[1])-1], ",")

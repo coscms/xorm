@@ -202,7 +202,7 @@ func (db *mysql) SqlType(c *core.Column) string {
 		res = core.Enum
 		res += "("
 		opts := ""
-		for v, _ := range c.EnumOptions {
+		for _, v := range c.EnumOptions {
 			opts += fmt.Sprintf(",'%v'", v)
 		}
 		res += strings.TrimLeft(opts, ",")
@@ -211,7 +211,7 @@ func (db *mysql) SqlType(c *core.Column) string {
 		res = core.Set
 		res += "("
 		opts := ""
-		for v, _ := range c.SetOptions {
+		for _, v := range c.SetOptions {
 			opts += fmt.Sprintf(",'%v'", v)
 		}
 		res += strings.TrimLeft(opts, ",")
@@ -227,8 +227,8 @@ func (db *mysql) SqlType(c *core.Column) string {
 		res = t
 	}
 
-	var hasLen1 bool = (c.Length > 0)
-	var hasLen2 bool = (c.Length2 > 0)
+	hasLen1 := (c.Length > 0)
+	hasLen2 := (c.Length2 > 0)
 
 	if res == core.BigInt && !hasLen1 && !hasLen2 {
 		c.Length = 20
@@ -339,19 +339,19 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 			idx := strings.Index(cts[1], ")")
 			if colType == core.Enum && cts[1][0] == '\'' { //enum
 				options := strings.Split(cts[1][0:idx], ",")
-				col.EnumOptions = make(map[string]int)
+				col.EnumOptions = make([]string, len(options))
 				for k, v := range options {
 					v = strings.TrimSpace(v)
 					v = strings.Trim(v, "'")
-					col.EnumOptions[v] = k
+					col.EnumOptions[k] = v
 				}
 			} else if colType == core.Set && cts[1][0] == '\'' {
 				options := strings.Split(cts[1][0:idx], ",")
-				col.SetOptions = make(map[string]int)
+				col.SetOptions = make([]string, len(options))
 				for k, v := range options {
 					v = strings.TrimSpace(v)
 					v = strings.Trim(v, "'")
-					col.SetOptions[v] = k
+					col.SetOptions[k] = v
 				}
 			} else {
 				lens := strings.Split(cts[1][0:idx], ",")
@@ -382,9 +382,9 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 			col.IsPrimaryKey = true
 		}
 		/*
-		if colKey == "UNI" {
-			//col.is
-		}
+			if colKey == "UNI" {
+				//col.is
+			}
 		*/
 
 		if extra == "auto_increment" {
