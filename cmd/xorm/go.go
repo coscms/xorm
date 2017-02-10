@@ -246,18 +246,18 @@ func tag(table *core.Table, col *core.Column) string {
 	} else if len(col.EnumOptions) > 0 { //enum
 		nstr += "("
 		opts := ""
-		for v, _ := range col.EnumOptions {
+		for _, v := range col.EnumOptions {
 			opts += fmt.Sprintf(",'%v'", v)
 		}
-		nstr += strings.TrimLeft(opts,",")
+		nstr += strings.TrimLeft(opts, ",")
 		nstr += ")"
 	} else if len(col.SetOptions) > 0 { //enum
 		nstr += "("
 		opts := ""
-		for v, _ := range col.SetOptions {
+		for _, v := range col.SetOptions {
 			opts += fmt.Sprintf(",'%v'", v)
 		}
-		nstr += strings.TrimLeft(opts,",")
+		nstr += strings.TrimLeft(opts, ",")
 		nstr += ")"
 	}
 	res = append(res, nstr)
