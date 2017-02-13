@@ -228,8 +228,11 @@ func (statement *Statement) NotIn(column string, args ...interface{}) *Statement
 func (statement *Statement) setRefValue(v reflect.Value) {
 	statement.RefTable = statement.Engine.autoMapType(reflect.Indirect(v))
 	//statement.tableName = statement.Engine.tbName(v)
+	statement.setRelationFromRefTable() //[SWH|+]
+}
 
-	//[SWH|+]---\
+//[SWH|+]
+func (statement *Statement) setRelationFromRefTable() {
 	statement.tableName = statement.RefTable.Name
 	statement.SetRelation(statement.RefTable.Relation)
 }
@@ -975,7 +978,7 @@ func (statement *Statement) genColumnStr() string {
 	}
 
 	table := statement.RefTable
-	colNames := make([]string, 0)
+	var colNames []string
 
 	//主表的列
 	var alias string
@@ -999,6 +1002,7 @@ func (statement *Statement) genColumnStr() string {
 			statement.genColumns(table, alias, &colNames, true)
 		}
 	}
+
 	return strings.Join(colNames, ", ")
 }
 

@@ -1268,12 +1268,7 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 			return ErrTableNotFound
 		}
 
-		var columnStr = session.Statement.ColumnStr
-		if len(session.Statement.selectStr) > 0 {
-			columnStr = session.Statement.selectStr
-		} else {
-			columnStr = session.Statement.genColumnStr()
-		}
+		columnStr := session.Statement.genColumnStr()
 
 		condSQL, condArgs, _ := builder.ToSQL(session.Statement.cond.And(autoCond))
 
