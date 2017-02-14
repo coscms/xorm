@@ -191,13 +191,12 @@ func (r *ResultSet) Set(index int, value interface{}) bool {
 func (r *ResultSet) SetByName(name string, value interface{}) bool {
 	if index, ok := r.NameIndex[name]; ok {
 		return r.Set(index, value)
-	} else {
-		r.NameIndex[name] = len(r.Values)
-		r.Fields = append(r.Fields, name)
-		rawValue := reflect.Indirect(reflect.ValueOf(value))
-		r.Values = append(r.Values, &rawValue)
-		r.Length = len(r.Values)
 	}
+	r.NameIndex[name] = len(r.Values)
+	r.Fields = append(r.Fields, name)
+	rawValue := reflect.Indirect(reflect.ValueOf(value))
+	r.Values = append(r.Values, &rawValue)
+	r.Length = len(r.Values)
 	return true
 }
 
@@ -271,6 +270,7 @@ func (session *Session) QCallback(callback func(*core.Rows, []string), sqlStr st
 
 	rows, err := session.queryRows(sqlStr, paramStr...)
 	if rows != nil {
+		defer rows.Close()
 		if err == nil {
 			var fields []string
 			fields, err = rows.Columns()
@@ -281,7 +281,6 @@ func (session *Session) QCallback(callback func(*core.Rows, []string), sqlStr st
 				callback(rows, fields)
 			}
 		}
-		rows.Close()
 	}
 	return
 }
@@ -377,9 +376,9 @@ func (this *Engine) RawQueryCallback(callback func(*core.Rows, []string), sql st
  * 查询键值对
  */
 func (this *Engine) RawQueryKv(key string, val string, sql string, paramStr ...interface{}) map[string]string {
-	var results map[string]string = make(map[string]string, 0)
+	results := make(map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
-		var result map[string]string = make(map[string]string)
+		result := make(map[string]string)
 		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 			result[fieldName] = data
 		})
@@ -396,9 +395,9 @@ func (this *Engine) RawQueryKv(key string, val string, sql string, paramStr ...i
 }
 
 func (this *Engine) RawQueryAllKvs(key string, sql string, paramStr ...interface{}) map[string][]map[string]string {
-	var results map[string][]map[string]string = make(map[string][]map[string]string, 0)
+	results := make(map[string][]map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
-		var result map[string]string = make(map[string]string)
+		result := make(map[string]string)
 		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 			result[fieldName] = data
 		})
@@ -517,9 +516,9 @@ func (this *Engine) RawQueryKvs(key string, sql string, paramStr ...interface{})
 	if key == "" {
 		key = "id"
 	}
-	var results map[string]map[string]string = make(map[string]map[string]string, 0)
+	results := make(map[string]map[string]string, 0)
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
-		var result map[string]string = make(map[string]string)
+		result := make(map[string]string)
 		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 			result[fieldName] = data
 		})
@@ -534,12 +533,12 @@ func (this *Engine) RawQueryKvs(key string, sql string, paramStr ...interface{})
 }
 
 /**
- * 查询[]map[string]string
+ * RawQueryStr 查询[]map[string]string
  */
 func (this *Engine) RawQueryStr(sql string, paramStr ...interface{}) []map[string]string {
-	var results []map[string]string = make([]map[string]string, 0)
+	var results []map[string]string
 	err := this.RawQueryCallback(func(rows *core.Rows, fields []string) {
-		var result map[string]string = make(map[string]string)
+		result := make(map[string]string)
 		StrRowProcessing(rows, fields, func(data string, index int, fieldName string) {
 			result[fieldName] = data
 		})
@@ -555,10 +554,12 @@ func (this *Engine) RawQueryStr(sql string, paramStr ...interface{}) []map[strin
 // 写操作
 // -----------------------
 func (this *Engine) RawInsert(table string, sets map[string]interface{}) (lastId int64) {
-	fields := ""
-	values := ""
-	params := make([]interface{}, 0)
-	delim := ""
+	var (
+		fields string
+		values string
+		params []interface{}
+		delim  string
+	)
 	for k, v := range sets {
 		fields += delim + this.Quote(k)
 		values += delim + "?"
@@ -570,10 +571,12 @@ func (this *Engine) RawInsert(table string, sets map[string]interface{}) (lastId
 }
 
 func (this *Engine) RawOnlyInsert(table string, sets map[string]interface{}) (sql.Result, error) {
-	fields := ""
-	values := ""
-	params := make([]interface{}, 0)
-	delim := ""
+	var (
+		fields string
+		values string
+		params []interface{}
+		delim  string
+	)
 	for k, v := range sets {
 		fields += delim + this.Quote(k)
 		values += delim + "?"
@@ -585,14 +588,16 @@ func (this *Engine) RawOnlyInsert(table string, sets map[string]interface{}) (sq
 }
 
 func (this *Engine) RawBatchInsert(table string, multiSets []map[string]interface{}) (sql.Result, error) {
-	fields := ""
-	values := ""
-	params := make([]interface{}, 0)
+	var (
+		fields string
+		values string
+		params []interface{}
+		length int
+		delim  string
+	)
 	keyIdx := map[string]int{}
-	length := 0
-	delim := ""
 	for i, sets := range multiSets {
-		innerDelim := ""
+		var innerDelim string
 		values += delim + "("
 		if i == 0 {
 			idx := 0
@@ -626,10 +631,12 @@ func (this *Engine) RawBatchInsert(table string, multiSets []map[string]interfac
 }
 
 func (this *Engine) RawReplace(table string, sets map[string]interface{}) int64 {
-	fields := ""
-	values := ""
-	params := make([]interface{}, 0)
-	delim := ""
+	var (
+		fields string
+		values string
+		params []interface{}
+		delim  string
+	)
 	for k, v := range sets {
 		fields += delim + this.Quote(k)
 		values += delim + "?"
@@ -641,9 +648,11 @@ func (this *Engine) RawReplace(table string, sets map[string]interface{}) int64 
 }
 
 func (this *Engine) RawUpdate(table string, sets map[string]interface{}, where string, args ...interface{}) int64 {
-	set := ""
-	params := make([]interface{}, 0)
-	delim := ""
+	var (
+		set    string
+		params []interface{}
+		delim  string
+	)
 	for k, v := range sets {
 		set += delim + this.Quote(k) + "=?"
 		params = append(params, v)
@@ -868,7 +877,7 @@ func BuildSqlResult(sqlStr string, args interface{}) string {
 }
 
 func AddSlashes(s string, args ...rune) string {
-	b := []rune{'\\', '\''}
+	b := []rune{'\''}
 	if len(args) > 0 {
 		b = append(b, args...)
 	}
@@ -878,13 +887,17 @@ func AddSlashes(s string, args ...rune) string {
 func AddCSlashes(s string, b ...rune) string {
 	r := []rune{}
 	for _, v := range []rune(s) {
-		for _, f := range b {
-			if v == f {
-				r = append(r, '\\')
-				break
+		if v == '\\' {
+			r = append(r, '\\')
+		} else {
+			for _, f := range b {
+				if v == f {
+					r = append(r, '\\')
+					break
+				}
 			}
 		}
 		r = append(r, v)
 	}
-	return strings.TrimRight(string(r), `\`)
+	return string(r)
 }
