@@ -309,7 +309,7 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 	defer rows.Close()
 
 	cols := make(map[string]*core.Column)
-	colSeq := make([]string, 0)
+	var colSeq []string
 	for rows.Next() {
 		col := new(core.Column)
 		col.Indexes = make(map[string]int)
@@ -376,7 +376,7 @@ func (db *mysql) GetColumns(tableName string) ([]string, map[string]*core.Column
 		if _, ok := core.SqlTypes[colType]; ok {
 			col.SQLType = core.SQLType{colType, len1, len2}
 		} else {
-			return nil, nil, errors.New(fmt.Sprintf("unkonw colType %v", colType))
+			return nil, nil, fmt.Errorf("unkonw colType %v", colType)
 		}
 
 		if colKey == "PRI" {
@@ -419,7 +419,7 @@ func (db *mysql) GetTables() ([]*core.Table, error) {
 	}
 	defer rows.Close()
 
-	tables := make([]*core.Table, 0)
+	var tables []*core.Table
 	for rows.Next() {
 		table := core.NewEmptyTable()
 		var name, engine, tableRows string
