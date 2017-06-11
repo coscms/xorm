@@ -1541,6 +1541,13 @@ func (engine *Engine) Insert(beans ...interface{}) (int64, error) {
 	return session.Insert(beans...)
 }
 
+// Insert more records
+func (engine *Engine) InsertMulti(beans interface{}) (int64, error) {
+	session := engine.NewSession()
+	defer session.Close()
+	return session.InsertMulti(beans)
+}
+
 // InsertOne insert only one record
 func (engine *Engine) InsertOne(bean interface{}) (int64, error) {
 	session := engine.NewSession()
