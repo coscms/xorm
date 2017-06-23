@@ -41,6 +41,14 @@ func (s *BytesWriter) Append(args ...interface{}) {
 	s.args = append(s.args, args...)
 }
 
+func (s *BytesWriter) String() string {
+	return s.writer.String()
+}
+
+func (s *BytesWriter) Bytes() []byte {
+	return s.writer.Bytes()
+}
+
 // Cond defines an interface
 type Cond interface {
 	WriteTo(Writer) error
