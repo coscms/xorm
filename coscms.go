@@ -1,7 +1,7 @@
 package xorm
 
 import (
-	"database/sql"
+	stdSQL "database/sql"
 	"fmt"
 	"log"
 	"reflect"
@@ -553,7 +553,9 @@ func (this *Engine) RawQueryStr(sql string, params ...interface{}) []map[string]
 // -----------------------
 // 写操作
 // -----------------------
-func (this *Engine) RawInsert(table string, sets map[string]interface{}) (lastId int64) {
+
+//RawInsert insert
+func (this *Engine) RawInsert(table string, sets map[string]interface{}) (lastId int64, err error) {
 	var (
 		fields string
 		values string
@@ -570,7 +572,7 @@ func (this *Engine) RawInsert(table string, sets map[string]interface{}) (lastId
 	return this.RawExec(sql, true, params...)
 }
 
-func (this *Engine) RawOnlyInsert(table string, sets map[string]interface{}) (sql.Result, error) {
+func (this *Engine) RawOnlyInsert(table string, sets map[string]interface{}) (stdSQL.Result, error) {
 	var (
 		fields string
 		values string
@@ -587,7 +589,7 @@ func (this *Engine) RawOnlyInsert(table string, sets map[string]interface{}) (sq
 	return this.RawExecr(sql, params...)
 }
 
-func (this *Engine) RawBatchInsert(table string, multiSets []map[string]interface{}) (sql.Result, error) {
+func (this *Engine) RawBatchInsert(table string, multiSets []map[string]interface{}) (stdSQL.Result, error) {
 	var (
 		fields string
 		values string
@@ -630,7 +632,7 @@ func (this *Engine) RawBatchInsert(table string, multiSets []map[string]interfac
 	return this.RawExecr(sql, params...)
 }
 
-func (this *Engine) RawReplace(table string, sets map[string]interface{}) int64 {
+func (this *Engine) RawReplace(table string, sets map[string]interface{}) (int64, error) {
 	var (
 		fields string
 		values string
@@ -647,7 +649,7 @@ func (this *Engine) RawReplace(table string, sets map[string]interface{}) int64 
 	return this.RawExec(sql, false, params...)
 }
 
-func (this *Engine) RawUpdate(table string, sets map[string]interface{}, where string, args ...interface{}) int64 {
+func (this *Engine) RawUpdate(table string, sets map[string]interface{}, where string, args ...interface{}) (int64, error) {
 	var (
 		set    string
 		params []interface{}
@@ -678,7 +680,7 @@ func (this *Engine) RawUpdate(table string, sets map[string]interface{}, where s
 	return this.RawExec(sql, false, params...)
 }
 
-func (this *Engine) RawDelete(table string, where string, params ...interface{}) int64 {
+func (this *Engine) RawDelete(table string, where string, params ...interface{}) (int64, error) {
 	sql := `DELETE FROM ` + this.fullTableName(table) + ` WHERE ` + where
 	if len(params) == 1 {
 		switch params[0].(type) {
@@ -689,8 +691,10 @@ func (this *Engine) RawDelete(table string, where string, params ...interface{})
 	return this.RawExec(sql, false, params...)
 }
 
-func (this *Engine) RawExec(sql string, retId bool, params ...interface{}) (affected int64) {
-	if result, err := this.Exec(sql, params...); err == nil {
+func (this *Engine) RawExec(sql string, retId bool, params ...interface{}) (affected int64, err error) {
+	var result stdSQL.Result
+	result, err = this.Exec(sql, params...)
+	if err == nil {
 		if retId {
 			affected, err = result.LastInsertId()
 		} else {
@@ -705,7 +709,7 @@ func (this *Engine) RawExec(sql string, retId bool, params ...interface{}) (affe
 	return
 }
 
-func (this *Engine) RawExecr(sql string, params ...interface{}) (result sql.Result, err error) {
+func (this *Engine) RawExecr(sql string, params ...interface{}) (result stdSQL.Result, err error) {
 	result, err = this.Exec(sql, params...)
 	if err != nil {
 		this.TLogger.Base.Error(err)
