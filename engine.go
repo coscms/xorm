@@ -417,6 +417,8 @@ func getTableName(v interface{}) (name string) {
 	switch tb := v.(type) {
 	case TableName:
 		name = tb.TableName()
+	case TABLE_NAME:
+		name = tb.TABLE_NAME()
 	}
 	return
 }
@@ -914,6 +916,10 @@ type TableName interface {
 	TableName() string
 }
 
+type TABLE_NAME interface {
+	TABLE_NAME() string
+}
+
 var (
 	tpTableName = reflect.TypeOf((*TableName)(nil)).Elem()
 )
@@ -921,19 +927,7 @@ var (
 func (engine *Engine) mapType(v reflect.Value, args ...*core.Relation) *core.Table {
 	t := v.Type()
 	table := engine.newTable()
-	if tb, ok := v.Interface().(TableName); ok {
-		table.Name = tb.TableName()
-	} else {
-		if v.CanAddr() {
-			if tb, ok = v.Addr().Interface().(TableName); ok {
-				table.Name = tb.TableName()
-			}
-		}
-		if table.Name == "" {
-			table.Name = engine.TableMapper.Obj2Table(t.Name())
-		}
-	}
-
+	table.Name = engine.tbName(v)
 	table.Type = t
 
 	var idFieldColName string
@@ -1549,7 +1543,7 @@ func (engine *Engine) Insert(beans ...interface{}) (int64, error) {
 	return session.Insert(beans...)
 }
 
-// Insert more records
+// InsertMulti Insert more records
 func (engine *Engine) InsertMulti(beans interface{}) (int64, error) {
 	session := engine.NewSession()
 	defer session.Close()
