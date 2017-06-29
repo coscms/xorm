@@ -397,20 +397,31 @@ func (engine *Engine) tableName(beanOrTableName interface{}) (string, error) {
 }
 
 func (engine *Engine) tbName(v reflect.Value) string {
-	if tb, ok := v.Interface().(TableName); ok {
-		return tb.TableName()
+	name := getTableName(v.Interface())
+	if len(name) > 0 {
+		return name
 	}
 
 	if v.Type().Kind() == reflect.Ptr {
-		if tb, ok := reflect.Indirect(v).Interface().(TableName); ok {
-			return tb.TableName()
-		}
+		name = getTableName(reflect.Indirect(v).Interface())
 	} else if v.CanAddr() {
-		if tb, ok := v.Addr().Interface().(TableName); ok {
-			return tb.TableName()
-		}
+		name = getTableName(v.Addr().Interface())
+	}
+	if len(name) > 0 {
+		return name
 	}
 	return engine.TableMapper.Obj2Table(reflect.Indirect(v).Type().Name())
+}
+
+func getTableName(v interface{}) string {
+	switch tb := v.(type) {
+	case TableName:
+		return tb.TableName()
+	case fmt.Stringer:
+		return tb.String()
+	default:
+		return ``
+	}
 }
 
 // DumpAll dump database all table structs and data to w with specify db type
