@@ -417,8 +417,6 @@ func getTableName(v interface{}) (name string) {
 	switch tb := v.(type) {
 	case TableName:
 		name = tb.TableName()
-	case MyTableName:
-		name = tb.Name()
 	}
 	return
 }
@@ -914,10 +912,6 @@ func (engine *Engine) newTable() *core.Table {
 // TableName table name interface to define customerize table name
 type TableName interface {
 	TableName() string
-}
-
-type MyTableName interface {
-	Name() string
 }
 
 var (
