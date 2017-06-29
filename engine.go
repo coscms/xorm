@@ -413,15 +413,14 @@ func (engine *Engine) tbName(v reflect.Value) string {
 	return engine.TableMapper.Obj2Table(reflect.Indirect(v).Type().Name())
 }
 
-func getTableName(v interface{}) string {
+func getTableName(v interface{}) (name string) {
 	switch tb := v.(type) {
 	case TableName:
-		return tb.TableName()
-	case fmt.Stringer:
-		return tb.String()
-	default:
-		return ``
+		name = tb.TableName()
+	case MyTableName:
+		name = tb.Name()
 	}
+	return
 }
 
 // DumpAll dump database all table structs and data to w with specify db type
@@ -915,6 +914,10 @@ func (engine *Engine) newTable() *core.Table {
 // TableName table name interface to define customerize table name
 type TableName interface {
 	TableName() string
+}
+
+type MyTableName interface {
+	Name() string
 }
 
 var (
