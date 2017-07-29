@@ -5,7 +5,7 @@ package builder
 import "fmt"
 
 // Le defines <= condition
-type Le map[string]interface{}
+type Le Lte
 
 var _ Cond = Le{}
 
