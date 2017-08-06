@@ -34,7 +34,7 @@ func loadConfig(f string) map[string]string {
 	lines := strings.Split(string(bts), "\n")
 	for _, line := range lines {
 		line = strings.TrimRight(line, "\r")
-		vs := strings.Split(line, "=")
+		vs := strings.SplitN(line, "=", 2)
 		if len(vs) == 2 {
 			configs[strings.TrimSpace(vs[0])] = strings.TrimSpace(vs[1])
 		}
@@ -49,7 +49,6 @@ func unTitle(src string) string {
 
 	if len(src) == 1 {
 		return strings.ToLower(string(src[0]))
-	} else {
-		return strings.ToLower(string(src[0])) + src[1:]
 	}
+	return strings.ToLower(string(src[0])) + src[1:]
 }

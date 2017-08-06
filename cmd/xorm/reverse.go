@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -121,6 +122,7 @@ func runReverse(cmd *Command, args []string) {
 	var ok bool
 	lang := "go"
 	var prefix string
+	var ignore *regexp.Regexp
 
 	cfgPath := filepath.Join(dir, "config")
 	info, err := os.Stat(cfgPath)
@@ -137,6 +139,9 @@ func runReverse(cmd *Command, args []string) {
 		//[SWH|+]
 		if j, ok := configs["prefix"]; ok {
 			prefix = j
+		}
+		if j, ok := configs["ignore"]; ok {
+			ignore = regexp.MustCompile(j)
 		}
 	}
 	if err != nil {
@@ -210,6 +215,9 @@ func runReverse(cmd *Command, args []string) {
 				if prefix != "" {
 					table.Name = strings.TrimPrefix(table.Name, prefix)
 				}
+				if ignore != nil && ignore.MatchString(table.Name) {
+					continue
+				}
 				tbls = append(tbls, table)
 			}
 
@@ -246,6 +254,9 @@ func runReverse(cmd *Command, args []string) {
 				//[SWH|+]
 				if prefix != "" {
 					table.Name = strings.TrimPrefix(table.Name, prefix)
+				}
+				if ignore != nil && ignore.MatchString(table.Name) {
+					continue
 				}
 				// imports
 				tbs := []*core.Table{table}
