@@ -16,7 +16,17 @@ func (like Like) WriteTo(w Writer) error {
 	if _, err := fmt.Fprintf(w, "%s LIKE ?", like[0]); err != nil {
 		return err
 	}
-	w.Append("%" + like[1] + "%")
+	var values []rune
+	for _, v := range like[1] {
+		switch v {
+		case '_', '%':
+			values = append(values, '\\')
+			fallthrough
+		default:
+			values = append(values, v)
+		}
+	}
+	w.Append("%" + string(values) + "%")
 	return nil
 }
 
