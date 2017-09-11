@@ -224,14 +224,16 @@ func (statement *Statement) NotIn(column string, args ...interface{}) *Statement
 }
 
 func (statement *Statement) setRefValue(v reflect.Value) {
-	statement.RefTable = statement.Engine.autoMapType(reflect.Indirect(v))
-	//statement.tableName = statement.Engine.tbName(v)
+	e := reflect.Indirect(v)
+	statement.RefTable = statement.Engine.autoMapType(e)
 	statement.setRelationFromRefTable() //[SWH|+]
 }
 
 //[SWH|+]
 func (statement *Statement) setRelationFromRefTable() {
-	statement.tableName = statement.RefTable.Name
+	if len(statement.tableName) == 0 {
+		statement.tableName = statement.RefTable.Name
+	}
 	statement.SetRelation(statement.RefTable.Relation)
 }
 
@@ -1112,6 +1114,9 @@ func (s *Statement) genAddColumnStr(col *core.Column) (string, []interface{}) {
 }
 
 func (statement *Statement) genConds(bean interface{}) (string, []interface{}, error) {
+	if name := getTableName(bean); len(name) > 0 {
+		statement.tableName = name
+	}
 	if !statement.noAutoCondition {
 		var addedTableName = (len(statement.JoinStr()) > 0)
 		autoCond, err := statement.buildConds(statement.RefTable, bean, true, true, false, true, addedTableName)
