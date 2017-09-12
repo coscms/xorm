@@ -84,6 +84,10 @@ func (session *Session) cacheGet(bean interface{}, sqlStr string, args ...interf
 		if cacheBean == nil {
 			newSession := session.Engine.NewSession()
 			defer newSession.Close()
+
+			newSession.Statement.AltTableName = session.Statement.AltTableName
+			newSession.Statement.tableName = session.Statement.tableName
+
 			cacheBean = reflect.New(structValue.Type()).Interface()
 			newSession.Id(id).NoCache()
 			if session.Statement.AltTableName != "" {
@@ -131,6 +135,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 	table := session.Statement.RefTable
 	cacher := session.Engine.getCacher2(table)
 	ids, err := core.GetCacheSql(cacher, tableName, newsql, args)
+
 	if err != nil {
 		rows, err := session.DB().Query(newsql, args...)
 		if err != nil {
@@ -214,6 +219,9 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 	if len(ides) > 0 {
 		newSession := session.Engine.NewSession()
 		defer newSession.Close()
+
+		newSession.Statement.AltTableName = session.Statement.AltTableName
+		newSession.Statement.tableName = session.Statement.tableName
 
 		slices := reflect.New(reflect.SliceOf(t))
 		beans := slices.Interface()
