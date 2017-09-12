@@ -11,6 +11,14 @@ import (
 	"github.com/coscms/xorm/core"
 )
 
+func (session *Session) cacheCopySessionSettings(newSession *Session) {
+	newSession.Statement.AltTableName = session.Statement.AltTableName
+	newSession.Statement.tableName = session.Statement.tableName
+	newSession.Statement.ColumnStr = session.Statement.ColumnStr
+	newSession.Statement.OmitStr = session.Statement.OmitStr
+	newSession.Statement.columnMap = session.Statement.columnMap
+}
+
 func (session *Session) cacheGet(bean interface{}, sqlStr string, args ...interface{}) (has bool, err error) {
 	// if has no reftable, then don't use cache currently
 	if !session.canCache() {
@@ -85,8 +93,7 @@ func (session *Session) cacheGet(bean interface{}, sqlStr string, args ...interf
 			newSession := session.Engine.NewSession()
 			defer newSession.Close()
 
-			newSession.Statement.AltTableName = session.Statement.AltTableName
-			newSession.Statement.tableName = session.Statement.tableName
+			session.cacheCopySessionSettings(newSession)
 
 			cacheBean = reflect.New(structValue.Type()).Interface()
 			newSession.Id(id).NoCache()
@@ -220,8 +227,7 @@ func (session *Session) cacheFind(t reflect.Type, sqlStr string, rowsSlicePtr in
 		newSession := session.Engine.NewSession()
 		defer newSession.Close()
 
-		newSession.Statement.AltTableName = session.Statement.AltTableName
-		newSession.Statement.tableName = session.Statement.tableName
+		session.cacheCopySessionSettings(newSession)
 
 		slices := reflect.New(reflect.SliceOf(t))
 		beans := slices.Interface()
