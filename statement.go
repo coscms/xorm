@@ -1128,7 +1128,7 @@ func (statement *Statement) genConds(bean interface{}) (string, []interface{}, e
 
 	statement.processIdParam()
 
-	return builder.ToSQL(statement.cond)
+	return builder.ToSQL(statement, statement.Engine.QuoteKey)
 }
 
 func (statement *Statement) genGetSQL(bean interface{}) (string, []interface{}) {

@@ -34,12 +34,12 @@ func (b *Builder) selectWriteTo(w Writer) error {
 		}
 	}
 
-	if _, err := fmt.Fprintf(w, " FROM %s", b.tableName); err != nil {
+	if _, err := fmt.Fprintf(w, " FROM %s", w.Key(b.tableName)); err != nil {
 		return err
 	}
 
 	for _, v := range b.joins {
-		fmt.Fprintf(w, " %s JOIN %s ON ", v.joinType, v.joinTable)
+		fmt.Fprintf(w, " %s JOIN %s ON ", v.joinType, w.Key(v.joinTable))
 		if err := v.joinCond.WriteTo(w); err != nil {
 			return err
 		}

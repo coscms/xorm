@@ -14,7 +14,7 @@ func (b *Builder) deleteWriteTo(w Writer) error {
 		return errors.New("no table indicated")
 	}
 
-	if _, err := fmt.Fprintf(w, "DELETE FROM %s WHERE ", b.tableName); err != nil {
+	if _, err := fmt.Fprintf(w, "DELETE FROM %s WHERE ", w.Key(b.tableName)); err != nil {
 		return err
 	}
 

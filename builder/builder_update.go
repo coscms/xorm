@@ -17,7 +17,7 @@ func (b *Builder) updateWriteTo(w Writer) error {
 		return errors.New("no column to be update")
 	}
 
-	if _, err := fmt.Fprintf(w, "UPDATE %s SET ", b.tableName); err != nil {
+	if _, err := fmt.Fprintf(w, "UPDATE %s SET ", w.Key(b.tableName)); err != nil {
 		return err
 	}
 

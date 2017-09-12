@@ -13,15 +13,17 @@ import (
 type Writer interface {
 	io.Writer
 	Append(...interface{})
+	Key(string) string
 }
 
 var _ Writer = NewWriter()
 
 // BytesWriter implments Writer and save SQL in bytes.Buffer
 type BytesWriter struct {
-	writer *bytes.Buffer
-	buffer []byte
-	args   []interface{}
+	writer    *bytes.Buffer
+	buffer    []byte
+	args      []interface{}
+	keyFilter func(string) string
 }
 
 // NewWriter creates a new string writer
@@ -39,6 +41,13 @@ func (s *BytesWriter) Write(buf []byte) (int, error) {
 // Append appends args to Writer
 func (s *BytesWriter) Append(args ...interface{}) {
 	s.args = append(s.args, args...)
+}
+
+func (s *BytesWriter) Key(key string) string {
+	if s.keyFilter != nil {
+		return s.keyFilter(key)
+	}
+	return key
 }
 
 func (s *BytesWriter) String() string {
@@ -86,12 +95,17 @@ func (condEmpty) IsValid() bool {
 	return false
 }
 
-func condToSQL(cond Cond) (string, []interface{}, error) {
+func condToSQL(cond Cond, keyFilters ...func(string) string) (string, []interface{}, error) {
 	if cond == nil || !cond.IsValid() {
 		return "", nil, nil
 	}
 
+	var keyFilter func(string) string
+	if len(keyFilters) > 0 {
+		keyFilter = keyFilters[0]
+	}
 	w := NewWriter()
+	w.keyFilter = keyFilter
 	if err := cond.WriteTo(w); err != nil {
 		return "", nil, err
 	}

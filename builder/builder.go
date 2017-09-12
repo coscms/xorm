@@ -169,8 +169,13 @@ func (b *Builder) WriteTo(w Writer) error {
 }
 
 // ToSQL convert a builder to SQL and args
-func (b *Builder) ToSQL() (string, []interface{}, error) {
+func (b *Builder) ToSQL(keyFilters ...func(string) string) (string, []interface{}, error) {
+	var keyFilter func(string) string
+	if len(keyFilters) > 0 {
+		keyFilter = keyFilters[0]
+	}
 	w := NewWriter()
+	w.keyFilter = keyFilter
 	if err := b.WriteTo(w); err != nil {
 		return "", nil, err
 	}
@@ -179,12 +184,12 @@ func (b *Builder) ToSQL() (string, []interface{}, error) {
 }
 
 // ToSQL convert a builder or condtions to SQL and args
-func ToSQL(cond interface{}) (string, []interface{}, error) {
-	switch cond.(type) {
+func ToSQL(cond interface{}, keyFilters ...func(string) string) (string, []interface{}, error) {
+	switch v := cond.(type) {
 	case Cond:
-		return condToSQL(cond.(Cond))
+		return condToSQL(v, keyFilters...)
 	case *Builder:
-		return cond.(*Builder).ToSQL()
+		return v.ToSQL(keyFilters...)
 	}
 	return "", nil, ErrNotSupportType
 }

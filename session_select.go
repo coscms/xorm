@@ -431,7 +431,7 @@ func (session *Session) Find(rowsSlicePtr interface{}, condiBean ...interface{})
 
 		columnStr := session.Statement.genColumnStr()
 
-		condSQL, condArgs, _ := builder.ToSQL(session.Statement.cond.And(autoCond))
+		condSQL, condArgs, _ := builder.ToSQL(session.Statement.cond.And(autoCond), session.Engine.QuoteKey)
 
 		args = append(session.Statement.joinArgs, condArgs...)
 		sqlStr = session.Statement.genSelectSQL(columnStr, condSQL)
