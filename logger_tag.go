@@ -6,6 +6,8 @@ package xorm
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/coscms/xorm/core"
 )
@@ -128,6 +130,16 @@ type TLogger struct {
 	ETime *CLogger
 	Base  *CLogger
 	Other *CLogger
+	min   time.Duration
+}
+
+func (t *TLogger) Min() time.Duration {
+	return t.min
+}
+
+func (t *TLogger) SetMin(min time.Duration) *TLogger {
+	t.min = min
+	return t
 }
 
 func (t *TLogger) Open(tags ...string) {
@@ -174,6 +186,16 @@ func (t *TLogger) SetStatusByName(tag string, status bool) {
 		t.Base.Disabled = status
 	case "other":
 		t.Other.Disabled = status
+	default:
+		if strings.HasPrefix(tag, `etime`) {
+			tag = strings.TrimPrefix(tag, `etime`)
+			tag = strings.TrimPrefix(tag, `>`)
+			var err error
+			t.min, err = time.ParseDuration(tag)
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 }
 

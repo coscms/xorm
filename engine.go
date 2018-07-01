@@ -245,7 +245,7 @@ func (engine *Engine) Ping() error {
 
 // logging sql
 func (engine *Engine) logSQL(sqlStr string, sqlArgs ...interface{}) {
-	if !engine.TLogger.SQL.Disabled {
+	if !engine.TLogger.SQL.Disabled && engine.TLogger.ETime.Disabled {
 		if len(sqlArgs) > 0 {
 			sqlStr = BuildSqlResult(sqlStr, sqlArgs)
 			engine.logger.Infof("[sql] %v [args] %v", sqlStr, sqlArgs)
@@ -260,6 +260,9 @@ func (engine *Engine) logSQLQueryTime(sqlStr string, args []interface{}, executi
 		b4ExecTime := time.Now()
 		stmt, res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
+		if execDuration < engine.TLogger.Min() {
+			return stmt, res, err
+		}
 		if len(args) > 0 {
 			sqlStr = BuildSqlResult(sqlStr, args)
 			engine.logger.Infof("[sql] %s [args] %v - took: %vs", sqlStr, args, execDuration.Seconds())
@@ -276,6 +279,9 @@ func (engine *Engine) logSQLExecutionTime(sqlStr string, args []interface{}, exe
 		b4ExecTime := time.Now()
 		res, err := executionBlock()
 		execDuration := time.Since(b4ExecTime)
+		if execDuration < engine.TLogger.Min() {
+			return res, err
+		}
 		if len(args) > 0 {
 			sqlStr = BuildSqlResult(sqlStr, args)
 			engine.logger.Infof("[sql] %s [args] %vs - took: %v", sqlStr, args, execDuration.Seconds())
